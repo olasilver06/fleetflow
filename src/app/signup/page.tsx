@@ -1,0 +1,100 @@
+"use client";
+
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+
+export default function SignupPage() {
+  const router = useRouter();
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [infoMessage, setInfoMessage] = useState<string | null>(null);
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setSubmitting(true);
+    setErrorMessage(null);
+    setInfoMessage(null);
+
+    const supabase = createSupabaseBrowserClient();
+    const { data, error } = await supabase.auth.signUp({ email, password });
+
+    if (error) {
+      setErrorMessage(error.message);
+      setSubmitting(false);
+      return;
+    }
+
+    if (!data.session) {
+      setInfoMessage("Check your email to confirm your account, then log in.");
+      setSubmitting(false);
+      return;
+    }
+
+    const res = await fetch("/api/users/bootstrap", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name }),
+    });
+
+    if (!res.ok) {
+      const data = await res.json().catch(() => null);
+      setErrorMessage(data?.error ?? "Couldn't finish setting up your account.");
+      setSubmitting(false);
+      return;
+    }
+
+    router.push("/request");
+  }
+
+  return (
+    <main className="min-h-screen bg-background flex items-center justify-center px-4">
+      <form onSubmit={handleSubmit} className="w-full max-w-sm space-y-4">
+        <h1 className="text-text-primary text-2xl font-medium mb-6">Sign up</h1>
+
+        <input
+          type="text"
+          placeholder="Name"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          className="w-full rounded-lg bg-surface border border-border px-4 py-3 text-text-primary placeholder:text-text-secondary focus:outline-none focus:ring-2 focus:ring-primary"
+          required
+        />
+        <input
+          type="email"
+          placeholder="Email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          className="w-full rounded-lg bg-surface border border-border px-4 py-3 text-text-primary placeholder:text-text-secondary focus:outline-none focus:ring-2 focus:ring-primary"
+          required
+        />
+        <input
+          type="password"
+          placeholder="Password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          className="w-full rounded-lg bg-surface border border-border px-4 py-3 text-text-primary placeholder:text-text-secondary focus:outline-none focus:ring-2 focus:ring-primary"
+          required
+        />
+
+        {errorMessage && (
+          <p className="text-danger text-sm" role="alert">
+            {errorMessage}
+          </p>
+        )}
+        {infoMessage && <p className="text-text-secondary text-sm">{infoMessage}</p>}
+
+        <button
+          type="submit"
+          disabled={submitting}
+          className="w-full rounded-lg bg-primary py-3 text-white font-medium disabled:opacity-40 disabled:cursor-not-allowed hover:bg-primary/90 transition-colors"
+        >
+          {submitting ? "Signing up…" : "Sign up"}
+        </button>
+      </form>
+    </main>
+  );
+}

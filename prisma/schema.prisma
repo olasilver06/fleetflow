@@ -1,0 +1,283 @@
+// ============================================================
+// FleetFlow — Prisma Schema (Phase 2) — v1.2
+// Last-Mile Delivery Operations Platform
+// ============================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Role {
+  CUSTOMER
+  ADMIN
+  RIDER
+}
+
+enum OrderStatus {
+  PENDING
+  ASSIGNED
+  RIDER_ACCEPTED
+  REJECTED_BY_RIDER
+  PICKED_UP
+  IN_TRANSIT
+  DELIVERED
+  COMPLETED
+  DELIVERY_FAILED
+  RETURNED_TO_SENDER
+  CANCELLED
+}
+
+enum RiderAvailability {
+  AVAILABLE
+  BUSY
+  OFFLINE
+}
+
+enum NotificationType {
+  EMAIL
+  SMS
+  PUSH
+}
+
+enum VehicleType {
+  BIKE
+  VAN
+  TRUCK
+}
+
+model User {
+  id         String   @id @default(uuid())
+  supabaseId String   @unique
+  email      String   @unique
+  phone      String?
+  name       String
+  role       Role
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  deletedAt  DateTime?
+
+  customer      Customer?
+  rider         Rider?
+  notifications Notification[]
+
+  @@index([role])
+}
+
+model Customer {
+  id     String @id @default(uuid())
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id])
+
+  orders  Order[]
+  ratings CustomerRating[]
+
+  createdAt DateTime  @default(now())
+  deletedAt DateTime?
+}
+
+model Rider {
+  id           String            @id @default(uuid())
+  userId       String            @unique
+  user         User              @relation(fields: [userId], references: [id])
+  vehicleType  VehicleType?
+  licensePlate String?
+  availability RiderAvailability @default(OFFLINE)
+
+  zoneId String?
+  zone   DeliveryZone? @relation(fields: [zoneId], references: [id])
+
+  deliveries Delivery[]
+  locations  RiderLocation[]
+  ratings    CustomerRating[]
+
+  completedDeliveries Int    @default(0)
+  failedDeliveries    Int    @default(0)
+  averageRating       Float?
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  @@index([availability])
+  @@index([zoneId])
+}
+
+model DeliveryZone {
+  id       String  @id @default(uuid())
+  name     String  @unique
+  boundary Json?
+  baseFee  Float
+
+  riders       Rider[]
+  orders       Order[]
+  pricingRules PricingRule[]
+
+  createdAt DateTime @default(now())
+}
+
+model PricingRule {
+  id                  String        @id @default(uuid())
+  zoneId              String?
+  zone                DeliveryZone? @relation(fields: [zoneId], references: [id])
+  baseFee             Float
+  perKmRate           Float?
+  weightSurchargeRate Float?
+  isActive            Boolean       @default(true)
+  createdAt           DateTime      @default(now())
+
+  @@index([zoneId, isActive])
+}
+
+model Order {
+  id String @id @default(uuid())
+
+  orderNumber String @unique
+
+  customerId String
+  customer   Customer @relation(fields: [customerId], references: [id])
+
+  zoneId String?
+  zone   DeliveryZone? @relation(fields: [zoneId], references: [id])
+
+  pickupAddress  String
+  pickupLat      Float
+  pickupLng      Float
+  dropoffAddress String
+  dropoffLat     Float
+  dropoffLng     Float
+
+  packageDescription String?
+  weightKg           Float?
+  price              Float
+
+  status OrderStatus @default(PENDING)
+
+  createdByUserId   String?
+  cancelledByUserId String?
+
+  delivery      Delivery?
+  statusHistory OrderStatusHistory[]
+  rating        CustomerRating?
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  @@index([status])
+  @@index([customerId])
+}
+
+model Delivery {
+  id      String @id @default(uuid())
+  orderId String @unique
+  order   Order  @relation(fields: [orderId], references: [id])
+
+  riderId String?
+  rider   Rider?  @relation(fields: [riderId], references: [id])
+
+  assignedByUserId String?
+
+  recommendationScore Float?
+
+  estimatedPickupTime   DateTime?
+  estimatedDeliveryTime DateTime?
+
+  assignedAt  DateTime?
+  acceptedAt  DateTime?
+  pickedUpAt  DateTime?
+  deliveredAt DateTime?
+
+  proofOfDelivery ProofOfDelivery?
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  @@index([riderId])
+}
+
+model OrderStatusHistory {
+  id      String @id @default(uuid())
+  orderId String
+  order   Order  @relation(fields: [orderId], references: [id])
+
+  previousStatus OrderStatus?
+  status         OrderStatus
+  note            String?
+  changedByUserId String?
+
+  createdAt DateTime @default(now())
+
+  @@index([orderId, createdAt])
+}
+
+model ProofOfDelivery {
+  id         String   @id @default(uuid())
+  deliveryId String   @unique
+  delivery   Delivery @relation(fields: [deliveryId], references: [id])
+
+  photoUrl      String
+  signatureUrl  String?
+  recipientName String?
+  notes         String?
+
+  verifiedByUserId String?
+
+  createdAt DateTime @default(now())
+}
+
+model RiderLocation {
+  id      String @id @default(uuid())
+  riderId String
+  rider   Rider  @relation(fields: [riderId], references: [id])
+
+  lat     Float
+  lng     Float
+  heading Float?
+  speed   Float?
+
+  recordedAt DateTime @default(now())
+
+  @@index([riderId, recordedAt])
+}
+
+model Notification {
+  id     String @id @default(uuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id])
+
+  type    NotificationType
+  title   String
+  message String
+  isRead  Boolean @default(false)
+
+  relatedOrderId String?
+
+  createdAt DateTime @default(now())
+
+  @@index([userId, isRead])
+}
+
+model CustomerRating {
+  id String @id @default(uuid())
+
+  orderId String @unique
+  order   Order  @relation(fields: [orderId], references: [id])
+
+  customerId String
+  customer   Customer @relation(fields: [customerId], references: [id])
+
+  riderId String
+  rider   Rider  @relation(fields: [riderId], references: [id])
+
+  rating  Int
+  comment String?
+
+  createdAt DateTime @default(now())
+
+  @@index([riderId])
+}
