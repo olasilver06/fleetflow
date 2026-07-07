@@ -1,0 +1,451 @@
+openapi: 3.0.3
+info:
+  title: FleetFlow API
+  description: >
+    Last-mile delivery operations platform. This spec covers only the routes
+    that exist today under src/app/api/ — see docs/api-contract.md for the
+    narrative version, including what is intentionally not yet built.
+  version: "0.3.0"
+servers:
+  - url: /api
+    description: Relative to the Next.js app origin (no separate API host)
+
+tags:
+  - name: Orders
+  - name: Users
+
+paths:
+  /orders:
+    post:
+      tags: [Orders]
+      summary: Create a delivery order
+      description: Requires an authenticated CUSTOMER with a linked Customer row.
+      security:
+        - supabaseSession: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateOrderRequest"
+      responses:
+        "201":
+          description: Order created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Order"
+        "400":
+          description: Missing required fields
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: Authenticated but not a CUSTOMER (or no linked Customer row)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    get:
+      tags: [Orders]
+      summary: List orders, scoped to the caller's role
+      description: >
+        CUSTOMER: own orders. ADMIN: all non-deleted orders (max 100).
+        RIDER: all orders ever assigned to them via Delivery.riderId
+        (not filtered to active statuses).
+      security:
+        - supabaseSession: []
+      responses:
+        "200":
+          description: Orders for the current user's role
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Order"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: Role has no order list defined (should not normally occur for CUSTOMER/ADMIN/RIDER)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /orders/{id}/status:
+    patch:
+      tags: [Orders]
+      summary: Transition an order's status
+      description: >
+        The single endpoint for every status transition (accept, reject,
+        pickup, deliver, cancel, etc.) — validated against the order
+        state machine, not fragmented into per-action routes.
+      security:
+        - supabaseSession: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Order id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StatusUpdateRequest"
+      responses:
+        "200":
+          description: Order transitioned successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Order"
+        "400":
+          description: >
+            Invalid status value, order not found, or the transition is not
+            allowed from the order's current status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: >
+            Caller is a RIDER without a linked Rider row, a RIDER not
+            assigned to this order, or any role other than RIDER/ADMIN
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /orders/{id}/assign:
+    post:
+      tags: [Orders]
+      summary: Assign a rider to an order
+      description: Admin dispatch action. Sets Order.status to ASSIGNED.
+      security:
+        - supabaseSession: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Order id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AssignRequest"
+      responses:
+        "200":
+          description: Rider assigned; order is now ASSIGNED
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Order"
+        "400":
+          description: >
+            Missing riderId, order not found, rider not found, rider not
+            AVAILABLE, or the order cannot currently transition to ASSIGNED
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: Caller is not an ADMIN
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /users/bootstrap:
+    post:
+      tags: [Users]
+      summary: Create (idempotently) the Prisma User/Customer row for the current Supabase session
+      description: >
+        Called right after supabase.auth.signUp succeeds. If a User already
+        exists for this supabaseId, it is returned as-is and the request
+        body is ignored. Role is always hardcoded to CUSTOMER server-side —
+        it cannot be set via this endpoint.
+      security:
+        - supabaseSession: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BootstrapUserRequest"
+      responses:
+        "200":
+          description: An existing User for this session was returned
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserWithCustomer"
+        "201":
+          description: A new User (+ linked Customer) was created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserWithCustomer"
+        "400":
+          description: Missing name (only applies on first bootstrap for this session)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: No Supabase session
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+components:
+  securitySchemes:
+    supabaseSession:
+      type: apiKey
+      in: cookie
+      name: sb-access-token
+      description: >
+        Supabase Auth session cookie, set via @supabase/ssr. The server
+        re-derives the caller's role from Prisma on every request; it never
+        trusts a role claimed by the client.
+
+  schemas:
+    OrderStatus:
+      type: string
+      enum:
+        - PENDING
+        - ASSIGNED
+        - RIDER_ACCEPTED
+        - REJECTED_BY_RIDER
+        - PICKED_UP
+        - IN_TRANSIT
+        - DELIVERED
+        - COMPLETED
+        - DELIVERY_FAILED
+        - RETURNED_TO_SENDER
+        - CANCELLED
+
+    Role:
+      type: string
+      enum: [CUSTOMER, ADMIN, RIDER]
+
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+      required: [error]
+
+    CreateOrderRequest:
+      type: object
+      required: [pickupAddress, pickupLat, dropoffAddress, dropoffLat]
+      properties:
+        pickupAddress:
+          type: string
+        pickupLat:
+          type: number
+          format: double
+        pickupLng:
+          type: number
+          format: double
+        dropoffAddress:
+          type: string
+        dropoffLat:
+          type: number
+          format: double
+        dropoffLng:
+          type: number
+          format: double
+        packageDescription:
+          type: string
+          nullable: true
+        weightKg:
+          type: number
+          format: double
+          nullable: true
+        zoneId:
+          type: string
+          format: uuid
+          nullable: true
+
+    StatusUpdateRequest:
+      type: object
+      required: [status]
+      properties:
+        status:
+          $ref: "#/components/schemas/OrderStatus"
+
+    AssignRequest:
+      type: object
+      required: [riderId]
+      properties:
+        riderId:
+          type: string
+          format: uuid
+
+    BootstrapUserRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          description: Required unless a User already exists for this session.
+
+    Order:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        orderNumber:
+          type: string
+          example: FF-2026-332535
+        customerId:
+          type: string
+          format: uuid
+        zoneId:
+          type: string
+          format: uuid
+          nullable: true
+        pickupAddress:
+          type: string
+        pickupLat:
+          type: number
+        pickupLng:
+          type: number
+        dropoffAddress:
+          type: string
+        dropoffLat:
+          type: number
+        dropoffLng:
+          type: number
+        packageDescription:
+          type: string
+          nullable: true
+        weightKg:
+          type: number
+          nullable: true
+        price:
+          type: number
+        status:
+          $ref: "#/components/schemas/OrderStatus"
+        createdByUserId:
+          type: string
+          format: uuid
+          nullable: true
+        cancelledByUserId:
+          type: string
+          format: uuid
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        deletedAt:
+          type: string
+          format: date-time
+          nullable: true
+      required:
+        - id
+        - orderNumber
+        - customerId
+        - pickupAddress
+        - pickupLat
+        - pickupLng
+        - dropoffAddress
+        - dropoffLat
+        - dropoffLng
+        - price
+        - status
+        - createdAt
+        - updatedAt
+
+    Customer:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        userId:
+          type: string
+          format: uuid
+        createdAt:
+          type: string
+          format: date-time
+        deletedAt:
+          type: string
+          format: date-time
+          nullable: true
+
+    UserWithCustomer:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        supabaseId:
+          type: string
+          format: uuid
+        email:
+          type: string
+          format: email
+        phone:
+          type: string
+          nullable: true
+        name:
+          type: string
+        role:
+          $ref: "#/components/schemas/Role"
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        deletedAt:
+          type: string
+          format: date-time
+          nullable: true
+        customer:
+          $ref: "#/components/schemas/Customer"
+      required:
+        - id
+        - supabaseId
+        - email
+        - name
+        - role
+        - createdAt
+        - updatedAt
