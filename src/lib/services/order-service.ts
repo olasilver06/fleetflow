@@ -1,6 +1,38 @@
-import type { OrderStatus } from "@prisma/client";
+import type { OrderStatus, Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { assertValidTransition } from "@/lib/services/order-state-machine";
+
+export async function transitionOrderStatusInTx(
+  tx: Prisma.TransactionClient,
+  orderId: string,
+  status: OrderStatus,
+  changedByUserId: string,
+  note?: string
+) {
+  const order = await tx.order.findUnique({ where: { id: orderId } });
+  if (!order || order.deletedAt) {
+    throw new Error("Order not found");
+  }
+
+  assertValidTransition(order.status, status);
+
+  const updated = await tx.order.update({
+    where: { id: orderId },
+    data: { status },
+  });
+
+  await tx.orderStatusHistory.create({
+    data: {
+      orderId,
+      previousStatus: order.status,
+      status,
+      changedByUserId,
+      note,
+    },
+  });
+
+  return updated;
+}
 
 export async function transitionOrderStatus(
   orderId: string,
@@ -8,31 +40,9 @@ export async function transitionOrderStatus(
   changedByUserId: string,
   note?: string
 ) {
-  return prisma.$transaction(async (tx) => {
-    const order = await tx.order.findUnique({ where: { id: orderId } });
-    if (!order || order.deletedAt) {
-      throw new Error("Order not found");
-    }
-
-    assertValidTransition(order.status, status);
-
-    const updated = await tx.order.update({
-      where: { id: orderId },
-      data: { status },
-    });
-
-    await tx.orderStatusHistory.create({
-      data: {
-        orderId,
-        previousStatus: order.status,
-        status,
-        changedByUserId,
-        note,
-      },
-    });
-
-    return updated;
-  });
+  return prisma.$transaction((tx) =>
+    transitionOrderStatusInTx(tx, orderId, status, changedByUserId, note)
+  );
 }
 
 export async function assignRiderToOrder(
