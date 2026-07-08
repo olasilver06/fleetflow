@@ -4,7 +4,7 @@ Legend: 🟢 = implemented and live in `src/app/api/` · 🟡 = designed/planned
 
 This document only describes routes that exist under `src/app/api/` today, exactly as implemented — not the aspirational full API surface. See [§4](#4-not-yet-built) for what's still missing.
 
-A pattern worth calling out up front: several pages (`/admin/orders`, `/rider/jobs`, `/orders`) query Prisma **directly inside server components** rather than calling a `GET` API route. That's an intentional, Next.js–idiomatic choice for server-rendered reads — API routes in this app exist for **client-initiated mutations** (`POST`/`PATCH` from a `"use client"` component) and for the one general-purpose `GET /api/orders` collection endpoint. It does not violate the "no client talks to Supabase directly" rule, since these reads happen server-side against Prisma/Postgres, not client-side against Supabase.
+A pattern worth calling out up front: several pages (`/admin/orders`, `/admin/dashboard`, `/rider/jobs`, `/orders`) query Prisma **directly inside server components** rather than calling a `GET` API route. That's an intentional, Next.js–idiomatic choice for server-rendered reads — API routes in this app exist for **client-initiated mutations** (`POST`/`PATCH` from a `"use client"` component) and for the one general-purpose `GET /api/orders` collection endpoint. It does not violate the "no client talks to Supabase directly" rule, since these reads happen server-side against Prisma/Postgres, not client-side against Supabase.
 
 ---
 
@@ -157,6 +157,41 @@ Uploads proof of delivery (a photo, plus optional recipient name/notes) and tran
 - `400 Bad Request` — missing/empty `photo`, or the transaction failed (e.g. an invalid state transition raced with another request).
 - `500 Internal Server Error` — the Storage upload itself failed.
 
+### 🟢 `POST /api/orders/:id/rating`
+
+Submits the customer's rating for a delivered order. **This is also the only way an order reaches `COMPLETED`** — rating and completion happen atomically together; that wasn't explicit in the original contract but is how it's actually built.
+
+- **File**: `src/app/api/orders/[id]/rating/route.ts`
+- **Role**: `CUSTOMER`, and only for their own order (`order.customerId` must match).
+
+**Request body**
+```json
+{ "rating": 4, "comment": "Great service (optional)" }
+```
+`rating` must be an integer `1`–`5`. `comment` is optional.
+
+**Preconditions**
+- Order must exist, not be soft-deleted, and belong to the requesting customer — `404`/`403` otherwise.
+- Order must currently be `DELIVERED` — `409 Conflict` otherwise. Since submitting a rating always advances the order to `COMPLETED` in the same transaction, this also naturally blocks rating the same order twice in the normal sequential case (the second attempt finds the order already `COMPLETED`, not `DELIVERED`).
+
+**Response — `201`**
+```json
+{ "rating": { "...": "CustomerRating row" }, "order": { "...": "updated Order row, now COMPLETED" } }
+```
+
+**Business logic** — in one Prisma transaction:
+1. Creates the `CustomerRating` row (`orderId`, `customerId`, `riderId` — taken from `delivery.riderId`, `rating`, `comment`).
+2. Calls `transitionOrderStatusInTx` to move the order `DELIVERED → COMPLETED` — reusing the same shared transition logic as `PATCH /status` and the proof route, not duplicated here.
+3. Increments the assigned rider's `completedDeliveries` by 1.
+4. Recomputes the rider's `averageRating` as the **true average** across all their `CustomerRating` rows (a fresh `aggregate` query inside the same transaction, not an incremental running approximation) — this correctly sees the row just created in step 1, since it's the same transaction.
+
+**Errors**
+- `401 Unauthorized` — no session.
+- `403 Forbidden` — not a customer, or not this order's customer.
+- `404 Not Found` — order doesn't exist or is soft-deleted.
+- `409 Conflict` — order isn't `DELIVERED`, has no assigned rider, or (defense-in-depth against a genuine race — two concurrent submissions both passing the `DELIVERED` check before either commits) the `CustomerRating.orderId` unique constraint was violated. That last case is caught explicitly (`P2002`) and returned as a clean `"This order has already been rated"` rather than a raw Prisma error/`500`.
+- `400 Bad Request` — `rating` missing or outside `1`–`5`.
+
 ---
 
 ## 2. Admin
@@ -243,7 +278,6 @@ Present in the Prisma schema and/or referenced in planning docs, but with no rou
 | Delivery zones (CRUD) | 🟡 | `DeliveryZone` model exists; `Order.zoneId` is accepted on create but nothing populates or manages zones. |
 | Pricing rules / dynamic pricing | 🟡 | `PricingRule` model exists; price is a hardcoded flat `1500` today. |
 | Rider live location tracking | 🟡 | `RiderLocation` model exists; no ingestion route, no map UI (Leaflet/OSM not wired in yet). |
-| Ratings | 🟡 | `CustomerRating` model exists; no route or UI to submit/view ratings. |
 | Notifications | 🟡 | `Notification` model exists; no route, no `NotificationService` (deliberately deferred per `CLAUDE.md`). |
 | Customer-initiated cancellation | 🟡 | The state machine supports `CANCELLED` from `PENDING`/`ASSIGNED`/`RIDER_ACCEPTED`, but `PATCH /status` currently returns a flat `403` for any `CUSTOMER` caller regardless of target status — there's no authorized path for a customer to cancel their own order yet. |
 | Fragmented per-action endpoints (`/accept`, `/reject`, `/pickup`, ...) | — | Not a gap — deliberately rejected in favor of the single `PATCH /status` endpoint. |

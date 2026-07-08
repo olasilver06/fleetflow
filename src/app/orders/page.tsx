@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
+import RatingForm from "@/components/customer/RatingForm";
 import type { OrderStatus } from "@prisma/client";
 
 export const dynamic = "force-dynamic";
@@ -87,6 +88,7 @@ export default async function CustomerOrdersPage() {
     include: {
       statusHistory: { orderBy: { createdAt: "asc" } },
       delivery: { include: { rider: { include: { user: true } } } },
+      rating: true,
     },
   });
 
@@ -143,6 +145,25 @@ export default async function CustomerOrdersPage() {
                 </li>
               ))}
             </ol>
+
+            {(order.status === "DELIVERED" || order.status === "COMPLETED") &&
+              (order.rating ? (
+                <div className="mt-4 pt-4 border-t border-border">
+                  <p className="text-text-secondary text-sm">
+                    You rated this delivery:{" "}
+                    <span className="text-text-primary font-medium">
+                      {order.rating.rating}/5
+                    </span>
+                  </p>
+                  {order.rating.comment && (
+                    <p className="text-text-secondary text-sm mt-1">
+                      &ldquo;{order.rating.comment}&rdquo;
+                    </p>
+                  )}
+                </div>
+              ) : (
+                <RatingForm orderId={order.id} />
+              ))}
           </div>
         ))}
       </div>
