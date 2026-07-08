@@ -159,7 +159,49 @@ Uploads proof of delivery (a photo, plus optional recipient name/notes) and tran
 
 ---
 
-## 2. Users
+## 2. Admin
+
+### 🟢 `GET /api/admin/dashboard`
+
+Returns the operational stats shown on the `/admin/dashboard` page. Note the page itself doesn't call this route — it calls `getDashboardStats()` directly from the server component to avoid a self-referential HTTP round trip. This endpoint exists for any other client (future mobile app, external tooling) that needs the same data over HTTP.
+
+- **File**: `src/app/api/admin/dashboard/route.ts`
+- **Role**: `ADMIN` only.
+
+**Response — `200`**
+```json
+{
+  "activeDeliveries": 0,
+  "pendingDeliveries": 0,
+  "completedToday": 0,
+  "failedDeliveries": 0,
+  "availableRiders": 1,
+  "ridersDelivering": 0,
+  "revenueToday": 0,
+  "avgDeliveryTimeMinutes": 34.79
+}
+```
+
+All figures come from [`getDashboardStats()`](../src/lib/services/dashboard-service.ts), computed as parallel Prisma queries (not cached):
+
+| Field | Meaning |
+|---|---|
+| `activeDeliveries` | Count of non-deleted orders with status in `ASSIGNED`, `RIDER_ACCEPTED`, `PICKED_UP`, `IN_TRANSIT`. |
+| `pendingDeliveries` | Count of non-deleted orders with status `PENDING`. |
+| `completedToday` | Count of non-deleted orders with status `DELIVERED` or `COMPLETED` whose `updatedAt` falls on or after local midnight (server timezone) today. |
+| `failedDeliveries` | Count of non-deleted orders with status `DELIVERY_FAILED` or `RETURNED_TO_SENDER`. |
+| `availableRiders` | Count of non-deleted riders with `availability: "AVAILABLE"`. |
+| `ridersDelivering` | Count of non-deleted riders with `availability: "BUSY"`. |
+| `revenueToday` | Sum of `Order.price` for the same "delivered/completed today" set as `completedToday`; `0` if none. |
+| `avgDeliveryTimeMinutes` | Average of `(Delivery.deliveredAt − Delivery.assignedAt)` in minutes, across non-deleted deliveries where both timestamps are set. `null` if no delivery has both timestamps yet (never `NaN`/divide-by-zero). |
+
+**Errors**
+- `401 Unauthorized` — no session.
+- `403 Forbidden` — not an admin.
+
+---
+
+## 3. Users
 
 ### 🟢 `POST /api/users/bootstrap`
 
@@ -185,13 +227,13 @@ Creates the `User` (+ linked `Customer`) row for a Supabase-authenticated identi
 
 ---
 
-## 3. Authentication
+## 4. Authentication
 
 There is no `/api/auth/*` surface. Sign-in and sign-up are handled **directly** by the Supabase Auth browser client (`createSupabaseBrowserClient` in `src/lib/supabase/client.ts`) from `src/app/login/page.tsx` and `src/app/signup/page.tsx` — consistent with the architecture rule that Supabase is the infrastructure layer (auth is infrastructure, not a FleetFlow business operation). Signup additionally calls `POST /api/users/bootstrap` right after `supabase.auth.signUp` succeeds, to create the corresponding Prisma `User`/`Customer` row.
 
 ---
 
-## 4. Not Yet Built
+## 5. Not Yet Built
 
 Present in the Prisma schema and/or referenced in planning docs, but with no route (or, in some cases, no UI) yet:
 
