@@ -2,6 +2,15 @@ import type { OrderStatus, Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { assertValidTransition } from "@/lib/services/order-state-machine";
 
+// Reaching any of these statuses means the assigned rider is no longer
+// actively working this order — free them back up for new assignments.
+const STATUSES_THAT_FREE_THE_RIDER: OrderStatus[] = [
+  "REJECTED_BY_RIDER",
+  "DELIVERY_FAILED",
+  "DELIVERED",
+  "CANCELLED",
+];
+
 export async function transitionOrderStatusInTx(
   tx: Prisma.TransactionClient,
   orderId: string,
@@ -9,7 +18,10 @@ export async function transitionOrderStatusInTx(
   changedByUserId: string,
   note?: string
 ) {
-  const order = await tx.order.findUnique({ where: { id: orderId } });
+  const order = await tx.order.findUnique({
+    where: { id: orderId },
+    include: { delivery: true },
+  });
   if (!order || order.deletedAt) {
     throw new Error("Order not found");
   }
@@ -30,6 +42,13 @@ export async function transitionOrderStatusInTx(
       note,
     },
   });
+
+  if (STATUSES_THAT_FREE_THE_RIDER.includes(status) && order.delivery?.riderId) {
+    await tx.rider.update({
+      where: { id: order.delivery.riderId },
+      data: { availability: "AVAILABLE" },
+    });
+  }
 
   return updated;
 }
@@ -79,6 +98,11 @@ export async function assignRiderToOrder(
         assignedByUserId,
         assignedAt: new Date(),
       },
+    });
+
+    await tx.rider.update({
+      where: { id: riderId },
+      data: { availability: "BUSY" },
     });
 
     const updated = await tx.order.update({
