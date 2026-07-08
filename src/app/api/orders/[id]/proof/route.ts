@@ -85,6 +85,11 @@ export async function POST(
         },
       });
 
+      await tx.delivery.update({
+        where: { id: deliveryId },
+        data: { deliveredAt: new Date() },
+      });
+
       const updatedOrder = await transitionOrderStatusInTx(
         tx,
         orderId,
