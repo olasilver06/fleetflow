@@ -64,7 +64,7 @@ Lists orders, scoped by the caller's role.
 
 ### 🟢 `PATCH /api/orders/:id/status`
 
-The single endpoint for every order status transition (accept, reject, pickup, deliver, cancel, etc.) — per the architecture decision against fragmenting into per-action routes.
+The single endpoint for every order status transition (accept, reject, pickup, deliver, cancel, etc.) — per the architecture decision against fragmenting into per-action routes. **Exception:** `DELIVERED` is explicitly blocked here — see below.
 
 - **File**: `src/app/api/orders/[id]/status/route.ts`
 - **Role**: `RIDER` (only for orders they're assigned to) or `ADMIN` (any order).
@@ -73,23 +73,26 @@ The single endpoint for every order status transition (accept, reject, pickup, d
 ```json
 { "status": "RIDER_ACCEPTED" }
 ```
-`status` must be one of the 11 `OrderStatus` enum values.
+`status` must be one of the 11 `OrderStatus` enum values, **except `DELIVERED`** (see below).
 
 **Response — `200`**: the updated `Order` row.
 
+**`DELIVERED` is blocked here.** Requesting `{ "status": "DELIVERED" }` returns `400` with `"DELIVERED can only be set via proof-of-delivery upload at POST /api/orders/:id/proof"`, checked immediately after status validation and before any role/ownership check or call into `transitionOrderStatus` — so it's rejected outright for every caller, admin included. This forces every delivery completion through [`POST /api/orders/:id/proof`](#-post-apiordersidproof), which requires a photo. That route is unaffected by this restriction: it calls `transitionOrderStatusInTx` directly inside its own transaction, never going through this route handler.
+
 **Authorization**
-- `RIDER` — must have a linked `Rider` row, and the target order's `delivery.riderId` must equal that rider's id, or `403`. The route does **not** further restrict *which* target statuses a rider may set beyond ownership — the state machine (not a per-role allow-list) is what actually constrains valid transitions.
-- `ADMIN` — no ownership check; can transition any order.
+- `RIDER` — must have a linked `Rider` row, and the target order's `delivery.riderId` must equal that rider's id, or `403`. Beyond ownership and the `DELIVERED` block above, the route does **not** further restrict *which* target statuses a rider may set — the state machine (not a per-role allow-list) is what actually constrains valid transitions.
+- `ADMIN` — no ownership check; can transition any order to any status the state machine allows, except `DELIVERED`.
 - Any other role → `403 Forbidden`.
 
 **Business logic** — delegates entirely to [`transitionOrderStatus`](../src/lib/services/order-service.ts), which:
 1. Loads the order inside a transaction; `404`-equivalent (`400` with message `"Order not found"`) if missing or soft-deleted.
 2. Validates the transition against [`order-state-machine.ts`](../src/lib/services/order-state-machine.ts); rejects invalid transitions with a `400` and a message like `"Cannot transition order from DELIVERED to PICKED_UP"`.
 3. Updates `Order.status` and writes an `OrderStatusHistory` row (`previousStatus`, `status`, `changedByUserId`) atomically.
+4. If the new status is `DELIVERED`, `REJECTED_BY_RIDER`, `DELIVERY_FAILED`, or `CANCELLED`, frees the assigned rider back to `availability: "AVAILABLE"`.
 
 **Errors**
 - `401 Unauthorized` — no session.
-- `400 Bad Request` — invalid/missing `status`, order not found, or an invalid state transition.
+- `400 Bad Request` — invalid/missing `status`, target status is `DELIVERED`, order not found, or an invalid state transition.
 - `403 Forbidden` — role/ownership check failed.
 
 ### 🟢 `POST /api/orders/:id/assign`
@@ -110,14 +113,49 @@ Assigns a rider to an order (admin dispatch action).
 1. Confirms the order exists, is not soft-deleted, and can validly transition to `ASSIGNED` (i.e. is currently `PENDING`, `REJECTED_BY_RIDER`, or `DELIVERY_FAILED`).
 2. Confirms the rider exists, is not soft-deleted, and has `availability: "AVAILABLE"`.
 3. Upserts the order's `Delivery` row (`riderId`, `assignedByUserId`, `assignedAt`) — handles both first assignment and reassignment (e.g. after a rejection).
-4. Updates `Order.status` to `ASSIGNED` and writes the `OrderStatusHistory` row.
+4. Flips the rider's `availability` to `BUSY`.
+5. Updates `Order.status` to `ASSIGNED` and writes the `OrderStatusHistory` row.
 
-**Known gap**: this does **not** flip the assigned rider's `availability` to `BUSY`. A rider remains `AVAILABLE` (and assignable to further orders) immediately after being assigned one.
+The rider is freed back to `availability: "AVAILABLE"` when the order later reaches `DELIVERED`, `REJECTED_BY_RIDER`, `DELIVERY_FAILED`, or `CANCELLED` — see `PATCH /status` above.
 
 **Errors**
 - `401 Unauthorized` — no session.
 - `403 Forbidden` — not an admin.
 - `400 Bad Request` — missing `riderId`, order not found, rider not found, rider not available, or an invalid state transition.
+
+### 🟢 `POST /api/orders/:id/proof`
+
+Uploads proof of delivery (a photo, plus optional recipient name/notes) and transitions the order to `DELIVERED` in the same step. This is the **only** way to reach `DELIVERED` — see the `DELIVERED` block on `PATCH /status` above.
+
+- **File**: `src/app/api/orders/[id]/proof/route.ts`
+- **Role**: `RIDER` (only if `delivery.riderId` matches them) or `ADMIN`.
+- **Content-Type**: `multipart/form-data`.
+
+**Request body (form fields)**
+- `photo` — file, required.
+- `recipientName` — string, optional.
+- `notes` — string, optional.
+
+**Preconditions**
+- Order must exist, not be soft-deleted, and currently be `IN_TRANSIT` — `409 Conflict` otherwise (checked before the file is parsed).
+- Order must have a linked `Delivery` — `409 Conflict` otherwise (defensive; not reachable via the normal state machine, since `IN_TRANSIT` implies a rider was assigned).
+
+**Response — `201`**
+```json
+{ "proof": { "...": "ProofOfDelivery row" }, "order": { "...": "updated Order row" } }
+```
+
+**Business logic**
+1. Uploads `photo` to the Supabase Storage `proof-of-delivery` bucket via [`createSupabaseAdminClient`](../src/lib/supabase/admin.ts) (service role — bypasses RLS; server-only, never importable from a client component), under a key of `{orderId}-{timestamp}.{ext}`, and resolves its public URL.
+2. In one Prisma transaction: creates the `ProofOfDelivery` row (`photoUrl`, `recipientName`, `notes`), stamps `Delivery.deliveredAt`, then calls `transitionOrderStatusInTx` to move the order to `DELIVERED` — reusing the same validation/audit-trail/rider-freeing logic `PATCH /status` uses, rather than duplicating it.
+
+**Errors**
+- `401 Unauthorized` — no session.
+- `403 Forbidden` — role/ownership check failed.
+- `404 Not Found` — order doesn't exist or is soft-deleted.
+- `409 Conflict` — order isn't `IN_TRANSIT`, or has no linked delivery.
+- `400 Bad Request` — missing/empty `photo`, or the transaction failed (e.g. an invalid state transition raced with another request).
+- `500 Internal Server Error` — the Storage upload itself failed.
 
 ---
 
@@ -160,12 +198,10 @@ Present in the Prisma schema and/or referenced in planning docs, but with no rou
 | Area | Status | Notes |
 |---|---|---|
 | `/api/orders/:id` (single order `GET`) | 🟡 | Pages that need one order's data query Prisma directly in a server component instead. |
-| Proof-of-delivery upload | 🟡 | `ProofOfDelivery` model exists; rider's "Mark delivered" action explicitly surfaces "Proof of delivery upload not yet implemented" in the UI. |
 | Delivery zones (CRUD) | 🟡 | `DeliveryZone` model exists; `Order.zoneId` is accepted on create but nothing populates or manages zones. |
 | Pricing rules / dynamic pricing | 🟡 | `PricingRule` model exists; price is a hardcoded flat `1500` today. |
 | Rider live location tracking | 🟡 | `RiderLocation` model exists; no ingestion route, no map UI (Leaflet/OSM not wired in yet). |
 | Ratings | 🟡 | `CustomerRating` model exists; no route or UI to submit/view ratings. |
 | Notifications | 🟡 | `Notification` model exists; no route, no `NotificationService` (deliberately deferred per `CLAUDE.md`). |
-| Dashboard / stats aggregation | 🟡 | No aggregation endpoints exist yet. |
 | Customer-initiated cancellation | 🟡 | The state machine supports `CANCELLED` from `PENDING`/`ASSIGNED`/`RIDER_ACCEPTED`, but `PATCH /status` currently returns a flat `403` for any `CUSTOMER` caller regardless of target status — there's no authorized path for a customer to cancel their own order yet. |
 | Fragmented per-action endpoints (`/accept`, `/reject`, `/pickup`, ...) | — | Not a gap — deliberately rejected in favor of the single `PATCH /status` endpoint. |

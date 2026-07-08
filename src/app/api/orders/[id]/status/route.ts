@@ -35,6 +35,16 @@ export async function PATCH(
     return NextResponse.json({ error: "Invalid status" }, { status: 400 });
   }
 
+  if (status === "DELIVERED") {
+    return NextResponse.json(
+      {
+        error:
+          "DELIVERED can only be set via proof-of-delivery upload at POST /api/orders/:id/proof",
+      },
+      { status: 400 }
+    );
+  }
+
   if (user.role === "RIDER") {
     if (!user.rider) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
