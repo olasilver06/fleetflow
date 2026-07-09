@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/auth/get-current-user";
+import { calculatePrice } from "@/lib/services/pricing-service";
 
 export async function POST(request: NextRequest) {
   const user = await requireUser();
@@ -15,11 +16,30 @@ export async function POST(request: NextRequest) {
     packageDescription, weightKg, zoneId,
   } = body;
 
-  if (!pickupAddress || !dropoffAddress || pickupLat == null || dropoffLat == null) {
+  if (
+    !pickupAddress || !dropoffAddress ||
+    pickupLat == null || pickupLng == null ||
+    dropoffLat == null || dropoffLng == null
+  ) {
     return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
   }
 
-  const price = 1500;
+  let price: number;
+  try {
+    const result = await calculatePrice({
+      zoneId: zoneId ?? null,
+      pickupLat,
+      pickupLng,
+      dropoffLat,
+      dropoffLng,
+      weightKg,
+    });
+    price = result.price;
+  } catch (e) {
+    const message = e instanceof Error ? e.message : "Couldn't calculate price";
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
+
   const orderNumber = `FF-${new Date().getFullYear()}-${Math.floor(100000 + Math.random() * 900000)}`;
 
   const order = await prisma.order.create({

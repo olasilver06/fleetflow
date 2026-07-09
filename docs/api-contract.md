@@ -22,21 +22,23 @@ Creates a new delivery order.
 {
   "pickupAddress": "string (required)",
   "pickupLat": "number (required)",
-  "pickupLng": "number",
+  "pickupLng": "number (required)",
   "dropoffAddress": "string (required)",
   "dropoffLat": "number (required)",
-  "dropoffLng": "number",
+  "dropoffLng": "number (required)",
   "packageDescription": "string (optional)",
   "weightKg": "number (optional)",
   "zoneId": "string (optional)"
 }
 ```
-Note the validation as actually implemented only checks `pickupAddress`, `dropoffAddress`, `pickupLat`, and `dropoffLat` are present — `pickupLng`/`dropoffLng` are not currently validated for presence.
+All four coordinates are validated as present (`pickupLat`, `pickupLng`, `dropoffLat`, `dropoffLng`) — this was tightened alongside the pricing engine below, since a missing longitude now silently corrupts the price calculation (`NaN`) rather than just a cosmetic map-marker issue.
 
 **Response — `201`**: the full created `Order` row (raw Prisma object; no relations included).
 
 **Business logic**
-- `price` is a **hardcoded flat `1500`** — no pricing engine wired up yet (the `PricingRule` model exists in the schema but is unused).
+- `price` is now **calculated**, not hardcoded — see [`calculatePrice`](../src/lib/services/pricing-service.ts): `price = baseFee + (straight-line distance in km × perKmRate) + (weightKg × weightSurchargeRate, if both are present)`, rounded to the nearest whole Naira. Distance is straight-line (haversine), not road distance — there's no routing/mapping integration yet.
+  - The rule used is the active `PricingRule` for the order's `zoneId` if one is given, otherwise the active global rule (`zoneId: null`). **No fallback chain** — if a `zoneId` is passed but has no active rule of its own, it does *not* fall back to the global rule; it fails.
+  - **Requires at least one active `PricingRule` to exist.** If none is found, `calculatePrice` throws `"No active pricing rule configured"`, which this route catches and returns as `500` rather than letting it crash unhandled or silently defaulting to a magic number. Seed one via `scripts/seed-pricing.ts` (creates a global default with placeholder rates — not real business pricing).
 - `orderNumber` is generated client-of-the-request-side as `FF-{year}-{random 6-digit number}`. It relies on the DB's `@unique` constraint to catch collisions; a collision would currently surface as an unhandled Prisma error (500), not a friendly retry.
 - Creates the first `OrderStatusHistory` row (`status: "PENDING"`) inline as part of the same write.
 
@@ -44,6 +46,7 @@ Note the validation as actually implemented only checks `pickupAddress`, `dropof
 - `403 Forbidden` — authenticated but not a `CUSTOMER`, or no linked `Customer` row.
 - `400 Bad Request` — missing required fields.
 - `401 Unauthorized` — *intended* for unauthenticated requests, but see **Known issue** below.
+- `500 Internal Server Error` — no active `PricingRule` found for the requested `zoneId`/global default.
 
 ### 🟢 `GET /api/orders`
 
@@ -276,7 +279,7 @@ Present in the Prisma schema and/or referenced in planning docs, but with no rou
 |---|---|---|
 | `/api/orders/:id` (single order `GET`) | 🟡 | Pages that need one order's data query Prisma directly in a server component instead. |
 | Delivery zones (CRUD) | 🟡 | `DeliveryZone` model exists; `Order.zoneId` is accepted on create but nothing populates or manages zones. |
-| Pricing rules / dynamic pricing | 🟡 | `PricingRule` model exists; price is a hardcoded flat `1500` today. |
+| Pricing rule management (CRUD/admin UI) | 🟡 | The pricing *engine* is built and live (`POST /api/orders` above) and consumes `PricingRule` rows, but there's no route or UI to create/edit rules — only `scripts/seed-pricing.ts`, a one-off seed with placeholder rates. |
 | Rider live location tracking | 🟡 | `RiderLocation` model exists; no ingestion route, no map UI (Leaflet/OSM not wired in yet). |
 | Notifications | 🟡 | `Notification` model exists; no route, no `NotificationService` (deliberately deferred per `CLAUDE.md`). |
 | Customer-initiated cancellation | 🟡 | The state machine supports `CANCELLED` from `PENDING`/`ASSIGNED`/`RIDER_ACCEPTED`, but `PATCH /status` currently returns a flat `403` for any `CUSTOMER` caller regardless of target status — there's no authorized path for a customer to cancel their own order yet. |
