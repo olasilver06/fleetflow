@@ -4,7 +4,9 @@ Legend: 🟢 = implemented and live in `src/app/api/` · 🟡 = designed/planned
 
 This document only describes routes that exist under `src/app/api/` today, exactly as implemented — not the aspirational full API surface. See [§4](#4-not-yet-built) for what's still missing.
 
-A pattern worth calling out up front: several pages (`/admin/orders`, `/admin/dashboard`, `/rider/jobs`, `/orders`) query Prisma **directly inside server components** rather than calling a `GET` API route. That's an intentional, Next.js–idiomatic choice for server-rendered reads — API routes in this app exist for **client-initiated mutations** (`POST`/`PATCH` from a `"use client"` component) and for the one general-purpose `GET /api/orders` collection endpoint. It does not violate the "no client talks to Supabase directly" rule, since these reads happen server-side against Prisma/Postgres, not client-side against Supabase.
+A pattern worth calling out up front: several pages (`/admin/orders`, `/admin/dashboard`, `/rider/jobs`, `/orders`, `/orders/:id/track`) query Prisma **directly inside server components** rather than calling a `GET` API route. That's an intentional, Next.js–idiomatic choice for server-rendered reads — API routes in this app exist for **client-initiated mutations** (`POST`/`PATCH` from a `"use client"` component) and for the one general-purpose `GET /api/orders` collection endpoint. It does not violate the "no client talks to Supabase directly" rule, since these reads happen server-side against Prisma/Postgres, not client-side against Supabase.
+
+One deliberate exception to that rule: `/orders/:id/track`'s map component subscribes to Supabase Realtime **directly from the browser** (`supabase.channel(...).on("postgres_changes", ...)`) for live `RiderLocation` updates. This is infrastructure-layer pub/sub, not a business-operation write, and there's no other way to get sub-second position updates without it — but it's why the `RiderLocation` RLS policy in [§2](#2-rider-locations) exists at all: it's the one table a browser client reads from Supabase directly, so the database itself has to enforce who can see what.
 
 ---
 
@@ -197,7 +199,39 @@ Submits the customer's rating for a delivered order. **This is also the only way
 
 ---
 
-## 2. Admin
+## 2. Rider Locations
+
+### 🟢 `POST /api/rider-locations`
+
+Records one GPS ping from the rider currently sharing their live location. Feeds the real-time tracking map on `/orders/:id/track` via Supabase Realtime (`postgres_changes` on `RiderLocation` INSERTs), not through this route directly — this endpoint only writes the row.
+
+- **File**: `src/app/api/rider-locations/route.ts`
+- **Role**: `RIDER` only.
+
+**Request body**
+```json
+{ "lat": 6.45, "lng": 3.39, "heading": 90, "speed": 5 }
+```
+`lat`/`lng` required numbers. `heading`/`speed` optional numbers.
+
+**Preconditions**: the rider must have **exactly one** non-deleted `Delivery` whose order is currently `IN_TRANSIT` — checked via `findMany`, not `findFirst`, specifically so a data anomaly (two simultaneous active deliveries for one rider, which the normal assign/status flow should never produce) fails loud instead of silently picking one. `0` or `>1` both return `409`.
+
+**Response — `201`**: the created `RiderLocation` row.
+
+**Errors**
+- `401 Unauthorized` — no session.
+- `403 Forbidden` — not a rider.
+- `409 Conflict` — rider doesn't have exactly one active `IN_TRANSIT` delivery.
+- `400 Bad Request` — `lat`/`lng` missing or not numbers.
+
+**Infrastructure this depends on, not just app code** — see migration `20260710170738_add_riderlocation_realtime_rls`:
+- `RiderLocation` must be added to the `supabase_realtime` publication for `postgres_changes` to fire at all.
+- RLS is enabled on `RiderLocation` with a policy scoping `SELECT` to: the rider themselves, or the customer of an order currently `IN_TRANSIT` and assigned to that rider — evaluated through a `SECURITY DEFINER` `plpgsql` function (`public.can_view_rider_location`), since the `authenticated` role has no direct grants on `Rider`/`User`/`Delivery`/`Order`/`Customer` (all business data normally only goes through the Next.js API layer). Without this, Realtime would silently deliver nothing to any subscriber — no error, just no events, ever.
+- The function is `plpgsql`, not `sql`, specifically so the migration stays replayable against a plain Postgres shadow/test database that has no `auth` schema (`prisma migrate dev`/`reset` use one) — `sql`-language functions are validated at `CREATE FUNCTION` time and would fail immediately on a database without `auth.uid()`; `plpgsql` compiles lazily on first call, which only ever happens against a real Supabase database.
+
+---
+
+## 3. Admin
 
 ### 🟢 `GET /api/admin/dashboard`
 
@@ -239,7 +273,7 @@ All figures come from [`getDashboardStats()`](../src/lib/services/dashboard-serv
 
 ---
 
-## 3. Users
+## 4. Users
 
 ### 🟢 `POST /api/users/bootstrap`
 
@@ -265,13 +299,13 @@ Creates the `User` (+ linked `Customer`) row for a Supabase-authenticated identi
 
 ---
 
-## 4. Authentication
+## 5. Authentication
 
 There is no `/api/auth/*` surface. Sign-in and sign-up are handled **directly** by the Supabase Auth browser client (`createSupabaseBrowserClient` in `src/lib/supabase/client.ts`) from `src/app/login/page.tsx` and `src/app/signup/page.tsx` — consistent with the architecture rule that Supabase is the infrastructure layer (auth is infrastructure, not a FleetFlow business operation). Signup additionally calls `POST /api/users/bootstrap` right after `supabase.auth.signUp` succeeds, to create the corresponding Prisma `User`/`Customer` row.
 
 ---
 
-## 5. Not Yet Built
+## 6. Not Yet Built
 
 Present in the Prisma schema and/or referenced in planning docs, but with no route (or, in some cases, no UI) yet:
 
@@ -280,7 +314,6 @@ Present in the Prisma schema and/or referenced in planning docs, but with no rou
 | `/api/orders/:id` (single order `GET`) | 🟡 | Pages that need one order's data query Prisma directly in a server component instead. |
 | Delivery zones (CRUD) | 🟡 | `DeliveryZone` model exists; `Order.zoneId` is accepted on create but nothing populates or manages zones. |
 | Pricing rule management (CRUD/admin UI) | 🟡 | The pricing *engine* is built and live (`POST /api/orders` above) and consumes `PricingRule` rows, but there's no route or UI to create/edit rules — only `scripts/seed-pricing.ts`, a one-off seed with placeholder rates. |
-| Rider live location tracking | 🟡 | `RiderLocation` model exists; no ingestion route, no map UI (Leaflet/OSM not wired in yet). |
 | Notifications | 🟡 | `Notification` model exists; no route, no `NotificationService` (deliberately deferred per `CLAUDE.md`). |
 | Customer-initiated cancellation | 🟡 | The state machine supports `CANCELLED` from `PENDING`/`ASSIGNED`/`RIDER_ACCEPTED`, but `PATCH /status` currently returns a flat `403` for any `CUSTOMER` caller regardless of target status — there's no authorized path for a customer to cancel their own order yet. |
 | Fragmented per-action endpoints (`/accept`, `/reject`, `/pickup`, ...) | — | Not a gap — deliberately rejected in favor of the single `PATCH /status` endpoint. |

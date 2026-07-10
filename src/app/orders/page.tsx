@@ -134,6 +134,14 @@ export default async function CustomerOrdersPage() {
                   ? `Rider: ${order.delivery.rider.user.name}`
                   : "Not yet assigned"}
               </p>
+              {order.status === "IN_TRANSIT" && (
+                <Link
+                  href={`/orders/${order.id}/track`}
+                  className="inline-block mt-1 text-primary text-sm font-medium hover:underline"
+                >
+                  Track live
+                </Link>
+              )}
             </div>
 
             <ol className="mt-4 space-y-2 border-l border-border pl-4">
