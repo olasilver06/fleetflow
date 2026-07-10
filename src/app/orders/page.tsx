@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
 import RatingForm from "@/components/customer/RatingForm";
+import { formatNaira } from "@/lib/format";
 import type { OrderStatus } from "@prisma/client";
 
 export const dynamic = "force-dynamic";
@@ -122,6 +123,7 @@ export default async function CustomerOrdersPage() {
                   {order.orderNumber}
                 </span>
                 <StatusBadge status={order.status} />
+                <span className="text-text-secondary text-sm">{formatNaira(order.price)}</span>
               </div>
               <p className="text-text-primary text-sm">
                 {order.pickupAddress} <span className="text-text-secondary">→</span>{" "}

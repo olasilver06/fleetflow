@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { formatNaira } from "@/lib/format";
 
 type SubmitState = "idle" | "submitting" | "success" | "error";
 
@@ -18,6 +19,7 @@ export default function OrderRequestForm() {
   const [state, setState] = useState<SubmitState>("idle");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [orderNumber, setOrderNumber] = useState<string | null>(null);
+  const [price, setPrice] = useState<number | null>(null);
 
   const isReadyToSubmit =
     pickupAddress.trim() &&
@@ -57,6 +59,7 @@ export default function OrderRequestForm() {
       }
 
       setOrderNumber(data.orderNumber);
+      setPrice(data.price);
       setState("success");
     } catch {
       setErrorMessage("Couldn't reach the server. Check your connection and try again.");
@@ -72,7 +75,10 @@ export default function OrderRequestForm() {
           CONFIRMED
         </div>
         <p className="text-text-primary text-lg mb-1">Delivery requested</p>
-        <p className="font-mono text-2xl text-text-primary mb-4">{orderNumber}</p>
+        <p className="font-mono text-2xl text-text-primary mb-1">{orderNumber}</p>
+        {price != null && (
+          <p className="text-sm text-text-secondary mb-4">{formatNaira(price)}</p>
+        )}
         <p className="text-text-secondary text-sm">
           You&apos;ll be able to track this delivery once a rider is assigned.
         </p>

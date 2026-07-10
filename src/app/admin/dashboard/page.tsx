@@ -1,14 +1,9 @@
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
 import { getDashboardStats } from "@/lib/services/dashboard-service";
+import { formatNaira } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
-
-const naira = new Intl.NumberFormat("en-NG", {
-  style: "currency",
-  currency: "NGN",
-  maximumFractionDigits: 0,
-});
 
 function StatCard({
   label,
@@ -82,7 +77,7 @@ export default async function AdminDashboardPage() {
           value={String(stats.ridersDelivering)}
           color="text-accent"
         />
-        <StatCard label="REVENUE TODAY" value={naira.format(stats.revenueToday)} />
+        <StatCard label="REVENUE TODAY" value={formatNaira(stats.revenueToday)} />
         <StatCard
           label="AVG DELIVERY TIME"
           value={
