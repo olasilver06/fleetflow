@@ -44,8 +44,8 @@ export default function AssignRiderControl({
   }
 
   return (
-    <div className="flex flex-col items-end gap-2 shrink-0">
-      <div className="flex items-center gap-2">
+    <div className="flex flex-col items-start sm:items-end gap-2 shrink-0">
+      <div className="flex items-center gap-2 flex-wrap">
         <select
           value={riderId}
           onChange={(e) => setRiderId(e.target.value)}

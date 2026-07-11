@@ -15,9 +15,9 @@ function StatCard({
   color?: string;
 }) {
   return (
-    <div className="rounded-xl border border-border bg-surface p-6">
+    <div className="rounded-xl border border-border bg-surface p-4 sm:p-6">
       <p className="text-text-secondary text-xs">{label}</p>
-      <p className={`text-3xl font-semibold mt-2 ${color}`}>{value}</p>
+      <p className={`text-xl sm:text-3xl font-semibold mt-2 truncate ${color}`}>{value}</p>
     </div>
   );
 }

@@ -169,8 +169,8 @@ export default function OrderStatusControl({
 
   if (status === "IN_TRANSIT") {
     return (
-      <div className="flex flex-col items-end gap-3 shrink-0 w-64">
-        <div className="flex flex-col items-end gap-1 w-full">
+      <div className="flex flex-col items-start sm:items-end gap-3 shrink-0 w-full sm:w-64">
+        <div className="flex flex-col items-start sm:items-end gap-1 w-full">
           <button
             type="button"
             onClick={toggleSharingLocation}
@@ -195,7 +195,10 @@ export default function OrderStatusControl({
           )}
         </div>
 
-        <form onSubmit={handleConfirmDelivery} className="flex flex-col items-end gap-2 w-full">
+        <form
+          onSubmit={handleConfirmDelivery}
+          className="flex flex-col items-start sm:items-end gap-2 w-full"
+        >
           <input
             type="file"
             accept="image/*"
@@ -232,8 +235,8 @@ export default function OrderStatusControl({
   const actions = ACTIONS[status] ?? [];
 
   return (
-    <div className="flex flex-col items-end gap-2 shrink-0">
-      <div className="flex items-center gap-2">
+    <div className="flex flex-col items-start sm:items-end gap-2 shrink-0">
+      <div className="flex items-center gap-2 flex-wrap">
         {actions.map((action) => (
           <button
             key={action.target}

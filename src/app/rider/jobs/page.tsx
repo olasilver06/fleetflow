@@ -71,7 +71,7 @@ export default async function RiderJobsPage() {
         {orders.map((order) => (
           <div
             key={order.id}
-            className="rounded-xl border border-border bg-surface p-6 flex items-center justify-between gap-6"
+            className="rounded-xl border border-border bg-surface p-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 sm:gap-6"
           >
             <div>
               <div className="flex items-center gap-3 mb-2">
