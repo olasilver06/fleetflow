@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
 import RatingForm from "@/components/customer/RatingForm";
+import CustomerNav from "@/components/customer/CustomerNav";
 import { formatNaira } from "@/lib/format";
 import type { OrderStatus } from "@prisma/client";
 
@@ -94,89 +95,94 @@ export default async function CustomerOrdersPage() {
   });
 
   return (
-    <main className="min-h-screen bg-background py-12 px-4">
-      <div className="max-w-4xl mx-auto mb-8">
-        <h1 className="text-text-primary text-2xl font-medium">My orders</h1>
-        <p className="text-text-secondary mt-1">Track the status of your deliveries.</p>
-      </div>
+    <>
+      <CustomerNav />
+      <main className="min-h-screen bg-background py-12 px-4">
+        <div className="max-w-4xl mx-auto mb-8">
+          <h1 className="text-text-primary text-2xl font-medium">My orders</h1>
+          <p className="text-text-secondary mt-1">Track the status of your deliveries.</p>
+        </div>
 
-      <div className="max-w-4xl mx-auto space-y-4">
-        {orders.length === 0 && (
-          <div className="rounded-xl border border-border bg-surface p-8 text-center">
-            <p className="text-text-secondary mb-4">
-              You haven&apos;t requested any deliveries yet.
-            </p>
-            <Link
-              href="/request"
-              className="inline-block rounded-lg bg-primary px-4 py-2 text-white text-sm font-medium hover:bg-primary/90 transition-colors"
-            >
-              Request a delivery
-            </Link>
-          </div>
-        )}
-
-        {orders.map((order) => (
-          <div key={order.id} className="rounded-xl border border-border bg-surface p-6">
-            <div>
-              <div className="flex items-center gap-3 mb-2">
-                <span className="font-mono text-sm text-text-primary">
-                  {order.orderNumber}
-                </span>
-                <StatusBadge status={order.status} />
-                <span className="text-text-secondary text-sm">{formatNaira(order.price)}</span>
-              </div>
-              <p className="text-text-primary text-sm">
-                {order.pickupAddress} <span className="text-text-secondary">→</span>{" "}
-                {order.dropoffAddress}
+        <div className="max-w-4xl mx-auto space-y-4">
+          {orders.length === 0 && (
+            <div className="rounded-xl border border-border bg-surface p-8 text-center">
+              <p className="text-text-secondary mb-4">
+                You haven&apos;t requested any deliveries yet.
               </p>
-              <p className="text-text-secondary text-xs mt-1">
-                {order.delivery?.rider
-                  ? `Rider: ${order.delivery.rider.user.name}`
-                  : "Not yet assigned"}
-              </p>
-              {order.status === "IN_TRANSIT" && (
-                <Link
-                  href={`/orders/${order.id}/track`}
-                  className="inline-block mt-1 text-primary text-sm font-medium hover:underline"
-                >
-                  Track live
-                </Link>
-              )}
+              <Link
+                href="/request"
+                className="inline-block rounded-lg bg-primary px-4 py-2 text-white text-sm font-medium hover:bg-primary/90 transition-colors"
+              >
+                Request a delivery
+              </Link>
             </div>
+          )}
 
-            <ol className="mt-4 space-y-2 border-l border-border pl-4">
-              {order.statusHistory.map((entry) => (
-                <li key={entry.id} className="text-sm">
-                  <span className="text-text-primary">{TIMELINE_LABELS[entry.status]}</span>
-                  <span className="text-text-secondary"> — </span>
-                  <span className="font-mono text-text-secondary text-xs">
-                    {formatTimestamp(entry.createdAt)}
+          {orders.map((order) => (
+            <div key={order.id} className="rounded-xl border border-border bg-surface p-6">
+              <div>
+                <div className="flex items-center gap-3 mb-2">
+                  <span className="font-mono text-sm text-text-primary">
+                    {order.orderNumber}
                   </span>
-                </li>
-              ))}
-            </ol>
-
-            {(order.status === "DELIVERED" || order.status === "COMPLETED") &&
-              (order.rating ? (
-                <div className="mt-4 pt-4 border-t border-border">
-                  <p className="text-text-secondary text-sm">
-                    You rated this delivery:{" "}
-                    <span className="text-text-primary font-medium">
-                      {order.rating.rating}/5
-                    </span>
-                  </p>
-                  {order.rating.comment && (
-                    <p className="text-text-secondary text-sm mt-1">
-                      &ldquo;{order.rating.comment}&rdquo;
-                    </p>
-                  )}
+                  <StatusBadge status={order.status} />
+                  <span className="text-text-secondary text-sm">
+                    {formatNaira(order.price)}
+                  </span>
                 </div>
-              ) : (
-                <RatingForm orderId={order.id} />
-              ))}
-          </div>
-        ))}
-      </div>
-    </main>
+                <p className="text-text-primary text-sm">
+                  {order.pickupAddress} <span className="text-text-secondary">→</span>{" "}
+                  {order.dropoffAddress}
+                </p>
+                <p className="text-text-secondary text-xs mt-1">
+                  {order.delivery?.rider
+                    ? `Rider: ${order.delivery.rider.user.name}`
+                    : "Not yet assigned"}
+                </p>
+                {order.status === "IN_TRANSIT" && (
+                  <Link
+                    href={`/orders/${order.id}/track`}
+                    className="inline-block mt-1 text-primary text-sm font-medium hover:underline"
+                  >
+                    Track live
+                  </Link>
+                )}
+              </div>
+
+              <ol className="mt-4 space-y-2 border-l border-border pl-4">
+                {order.statusHistory.map((entry) => (
+                  <li key={entry.id} className="text-sm">
+                    <span className="text-text-primary">{TIMELINE_LABELS[entry.status]}</span>
+                    <span className="text-text-secondary"> — </span>
+                    <span className="font-mono text-text-secondary text-xs">
+                      {formatTimestamp(entry.createdAt)}
+                    </span>
+                  </li>
+                ))}
+              </ol>
+
+              {(order.status === "DELIVERED" || order.status === "COMPLETED") &&
+                (order.rating ? (
+                  <div className="mt-4 pt-4 border-t border-border">
+                    <p className="text-text-secondary text-sm">
+                      You rated this delivery:{" "}
+                      <span className="text-text-primary font-medium">
+                        {order.rating.rating}/5
+                      </span>
+                    </p>
+                    {order.rating.comment && (
+                      <p className="text-text-secondary text-sm mt-1">
+                        &ldquo;{order.rating.comment}&rdquo;
+                      </p>
+                    )}
+                  </div>
+                ) : (
+                  <RatingForm orderId={order.id} />
+                ))}
+            </div>
+          ))}
+        </div>
+      </main>
+    </>
   );
 }
