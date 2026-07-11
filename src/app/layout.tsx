@@ -13,8 +13,14 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "FleetFlow",
+  title: "FleetFlow — Last-mile delivery, tracked",
   description: "Last-mile delivery, tracked in real time.",
+  icons: {
+    icon: [
+      { url: "/fleetflow-favicon-16.png", sizes: "16x16", type: "image/png" },
+      { url: "/fleetflow-favicon-32.png", sizes: "32x32", type: "image/png" },
+    ],
+  },
 };
 
 export default function RootLayout({

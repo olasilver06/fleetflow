@@ -26,8 +26,9 @@ export default function CustomerNav() {
   return (
     <header className="border-b border-border bg-surface px-4 py-3">
       <div className="max-w-4xl mx-auto flex items-center justify-between">
-        <Link href="/" className="text-text-primary font-semibold tracking-tight">
-          FleetFlow
+        <Link href="/">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/fleetflow-horizontal-lockup.svg" alt="FleetFlow" width={140} height={34} />
         </Link>
         <div className="flex items-center gap-6">
           <Link

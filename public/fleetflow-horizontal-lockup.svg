@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 220" width="900" height="220">
+  
+  <g transform="translate(40,50)">
+    <polygon points="17.2,9 98,9 84,30 4.6,30" fill="#2F6FED"></polygon>
+    <polygon points="31.9,43 90,43 79.6,64 21.7,64" fill="#2F6FED" opacity="0.68"></polygon>
+    <polygon points="43.6,77 81,77 74.7,98 35.9,98" fill="#2F6FED" opacity="0.4"></polygon>
+  </g>
+  
+  <text x="194" y="148" font-family="&#39;Inter Tight&#39;,&#39;Inter&#39;,sans-serif" font-weight="800" font-size="96" letter-spacing="-2" fill="#F4F5F7">Fleet<tspan fill="#2F6FED">Flow</tspan></text>
+</svg>

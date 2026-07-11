@@ -8,9 +8,14 @@ export default async function HomePage() {
 
   return (
     <main className="min-h-screen bg-background flex flex-col items-center justify-center px-4 text-center">
-      <h1 className="text-text-primary text-4xl font-semibold tracking-tight mb-3">
-        FleetFlow
-      </h1>
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src="/fleetflow-horizontal-lockup.svg"
+        alt="FleetFlow"
+        width={360}
+        height={88}
+        className="mb-3"
+      />
       <p className="text-text-secondary text-lg mb-8">
         Last-mile delivery, tracked in real time.
       </p>
