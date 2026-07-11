@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+import FleetFlowLogo from "@/components/FleetFlowLogo";
+import ThemeToggle from "@/components/ThemeToggle";
 
 export default function CustomerNav() {
   const router = useRouter();
@@ -27,8 +29,7 @@ export default function CustomerNav() {
     <header className="border-b border-border bg-surface px-4 py-3">
       <div className="max-w-4xl mx-auto flex items-center justify-between">
         <Link href="/">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/fleetflow-horizontal-lockup.svg" alt="FleetFlow" width={140} height={34} />
+          <FleetFlowLogo className="w-35 h-auto" />
         </Link>
         <div className="flex items-center gap-6">
           <Link
@@ -37,6 +38,7 @@ export default function CustomerNav() {
           >
             Track Orders
           </Link>
+          <ThemeToggle />
           {isLoggedIn && (
             <button
               type="button"

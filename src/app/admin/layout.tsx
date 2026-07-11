@@ -1,4 +1,6 @@
 import Link from "next/link";
+import FleetFlowLogo from "@/components/FleetFlowLogo";
+import ThemeToggle from "@/components/ThemeToggle";
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -6,13 +8,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       <nav className="border-b border-border bg-surface px-4 py-3">
         <div className="max-w-4xl mx-auto flex items-center justify-between">
           <Link href="/admin/dashboard">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src="/fleetflow-horizontal-lockup.svg"
-              alt="FleetFlow"
-              width={140}
-              height={34}
-            />
+            <FleetFlowLogo className="w-35 h-auto" />
           </Link>
           <div className="flex items-center gap-6">
             <Link
@@ -39,6 +35,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             >
               Riders
             </Link>
+            <ThemeToggle />
           </div>
         </div>
       </nav>

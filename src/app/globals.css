@@ -1,6 +1,45 @@
 @import "tailwindcss";
 @config "../../tailwind.config.ts";
 
+/* Dark is the default theme. */
+:root {
+  --color-background: #111827;
+  --color-surface: #1c212b;
+  --color-surface-hover: #242a36;
+  --color-border: #2a2d35;
+  --color-primary: #2f6fed;
+  --color-accent: #ff7a32;
+  --color-success: #2ecc71;
+  --color-warning: #f59e0b;
+  --color-danger: #eb5757;
+  --color-info: #38bdf8;
+  --color-neutral: #6b7280;
+  --color-text-primary: #f4f5f7;
+  --color-text-secondary: #9ca3af;
+}
+
+/* Light theme — not just inverted hex. Brand/status hues are darkened
+   where they're used as text (bg-X/10 text-X badges, links, error text)
+   so they stay WCAG AA-readable (>=4.5:1) on a near-white background;
+   the dark-mode hues are tuned for glowing on navy, not for reading on
+   white. Backgrounds/borders are a deliberately soft off-white/gray
+   scale, not pure white/black. */
+.light {
+  --color-background: #f7f9fc;
+  --color-surface: #ffffff;
+  --color-surface-hover: #eef1f6;
+  --color-border: #dde1e8;
+  --color-primary: #2358c7;
+  --color-accent: #b14e19;
+  --color-success: #1c7a43;
+  --color-warning: #966212;
+  --color-danger: #c23b3b;
+  --color-info: #086a96;
+  --color-neutral: #6b7280;
+  --color-text-primary: #111827;
+  --color-text-secondary: #4b5563;
+}
+
 body {
-  @apply bg-background text-text-primary;
+  @apply bg-background text-text-primary transition-colors;
 }

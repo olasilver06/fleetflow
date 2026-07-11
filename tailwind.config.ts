@@ -9,20 +9,23 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        // FleetFlow design system — see docs/product-doc.md Section 9
-        background: "#111827",
-        surface: "#1C212B",
-        "surface-hover": "#242A36",
-        border: "#2A2D35",
-        primary: "#2F6FED",
-        accent: "#FF7A32",
-        success: "#2ECC71",
-        warning: "#F59E0B",
-        danger: "#EB5757",
-        info: "#38BDF8",
-        neutral: "#6B7280",
-        "text-primary": "#F4F5F7",
-        "text-secondary": "#9CA3AF",
+        // FleetFlow design system — see docs/product-doc.md Section 9.
+        // Values come from CSS custom properties (see globals.css :root /
+        // .light) so light/dark theming doesn't require touching markup —
+        // every bg-background, text-text-primary, etc. class stays as-is.
+        background: "var(--color-background)",
+        surface: "var(--color-surface)",
+        "surface-hover": "var(--color-surface-hover)",
+        border: "var(--color-border)",
+        primary: "var(--color-primary)",
+        accent: "var(--color-accent)",
+        success: "var(--color-success)",
+        warning: "var(--color-warning)",
+        danger: "var(--color-danger)",
+        info: "var(--color-info)",
+        neutral: "var(--color-neutral)",
+        "text-primary": "var(--color-text-primary)",
+        "text-secondary": "var(--color-text-secondary)",
       },
       fontFamily: {
         sans: ["Inter", "sans-serif"],

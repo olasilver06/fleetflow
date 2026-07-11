@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { PackagePlus, Navigation, PackageCheck, MapPin, Camera, Ruler, History } from "lucide-react";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
+import FleetFlowLogo from "@/components/FleetFlowLogo";
 
 export const dynamic = "force-dynamic";
 
@@ -54,14 +55,7 @@ export default async function HomePage() {
   return (
     <main className="min-h-screen bg-background">
       <section className="min-h-screen flex flex-col items-center justify-center px-4 text-center">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src="/fleetflow-horizontal-lockup.svg"
-          alt="FleetFlow"
-          width={360}
-          height={88}
-          className="mb-3"
-        />
+        <FleetFlowLogo className="w-90 h-auto mb-3" />
         <p className="text-text-secondary text-lg mb-8">
           Last-mile delivery, tracked in real time.
         </p>
