@@ -402,11 +402,35 @@ Creates the `User` (+ linked `Customer`) row for a Supabase-authenticated identi
 - `401 Unauthorized` — no Supabase session.
 - `400 Bad Request` — `name` missing/blank (only reached on first bootstrap for a given identity).
 
+### 🟢 `POST /api/riders/bootstrap`
+
+The rider-signup counterpart to `POST /api/users/bootstrap` above — same idempotency pattern, same "role is hardcoded, never client-supplied" invariant, but creates a `User` (role `RIDER`) + linked `Rider` instead of a `Customer`. Called by `src/app/rider-signup/page.tsx` immediately after `supabase.auth.signUp`.
+
+- **File**: `src/app/api/riders/bootstrap/route.ts`
+- **Role**: any authenticated Supabase session (same reasoning as `/api/users/bootstrap`).
+
+**Request body**
+```json
+{ "name": "string (required unless the rider already exists)", "vehicleType": "BIKE | VAN | TRUCK" }
+```
+
+**Response**
+- `200` — an existing `User` (with `rider`) for this `supabaseId`; returned as-is, idempotently. The request body is ignored in this case.
+- `201` — newly created `User` (with `rider`).
+
+**Security invariants**:
+- `role` is hardcoded to `"RIDER"` — never read from the request body.
+- `Rider.availability` is hardcoded to `"OFFLINE"` — a self-signed-up rider cannot immediately receive assignments. There is currently no in-app approval workflow to flip this to `AVAILABLE`; an admin does it directly (Prisma Studio, or a future admin action) after reviewing the rider on `/admin/riders`.
+
+**Errors**
+- `401 Unauthorized` — no Supabase session.
+- `400 Bad Request` — `name` missing/blank, or `vehicleType` missing/not one of `BIKE`/`VAN`/`TRUCK` (only reached on first bootstrap for a given identity).
+
 ---
 
 ## 6. Authentication
 
-There is no `/api/auth/*` surface. Sign-in and sign-up are handled **directly** by the Supabase Auth browser client (`createSupabaseBrowserClient` in `src/lib/supabase/client.ts`) from `src/app/login/page.tsx` and `src/app/signup/page.tsx` — consistent with the architecture rule that Supabase is the infrastructure layer (auth is infrastructure, not a FleetFlow business operation). Signup additionally calls `POST /api/users/bootstrap` right after `supabase.auth.signUp` succeeds, to create the corresponding Prisma `User`/`Customer` row.
+There is no `/api/auth/*` surface. Sign-in and sign-up are handled **directly** by the Supabase Auth browser client (`createSupabaseBrowserClient` in `src/lib/supabase/client.ts`) from `src/app/login/page.tsx`, `src/app/signup/page.tsx`, and `src/app/rider-signup/page.tsx` — consistent with the architecture rule that Supabase is the infrastructure layer (auth is infrastructure, not a FleetFlow business operation). Signup additionally calls `POST /api/users/bootstrap` (customers) or `POST /api/riders/bootstrap` (riders) right after `supabase.auth.signUp` succeeds, to create the corresponding Prisma row. Customers land on `/request`; riders land on `/rider-signup/pending`, since a freshly self-signed-up rider is `OFFLINE` and can't work yet.
 
 ---
 

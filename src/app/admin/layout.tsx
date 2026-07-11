@@ -23,6 +23,12 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           >
             Zones
           </Link>
+          <Link
+            href="/admin/riders"
+            className="text-text-secondary text-sm font-medium hover:text-text-primary transition-colors"
+          >
+            Riders
+          </Link>
         </div>
       </nav>
       {children}
