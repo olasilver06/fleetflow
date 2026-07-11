@@ -4,7 +4,7 @@ Legend: 🟢 = implemented and live in `src/app/api/` · 🟡 = designed/planned
 
 This document only describes routes that exist under `src/app/api/` today, exactly as implemented — not the aspirational full API surface. See [§4](#4-not-yet-built) for what's still missing.
 
-A pattern worth calling out up front: several pages (`/admin/orders`, `/admin/dashboard`, `/rider/jobs`, `/orders`, `/orders/:id/track`) query Prisma **directly inside server components** rather than calling a `GET` API route. That's an intentional, Next.js–idiomatic choice for server-rendered reads — API routes in this app exist for **client-initiated mutations** (`POST`/`PATCH` from a `"use client"` component) and for the one general-purpose `GET /api/orders` collection endpoint. It does not violate the "no client talks to Supabase directly" rule, since these reads happen server-side against Prisma/Postgres, not client-side against Supabase.
+A pattern worth calling out up front: several pages (`/admin/orders`, `/admin/dashboard`, `/admin/zones`, `/rider/jobs`, `/orders`, `/orders/:id/track`) query Prisma **directly inside server components** rather than calling a `GET` API route. That's an intentional, Next.js–idiomatic choice for server-rendered reads — API routes in this app exist for **client-initiated mutations** (`POST`/`PATCH` from a `"use client"` component) and for the two general-purpose collection `GET`s that a client component actually needs to fetch itself: `GET /api/orders`, and `GET /api/zones` (called from `OrderRequestForm` to populate the zone `<select>`, since that data isn't known server-side at the time the form's client component mounts). It does not violate the "no client talks to Supabase directly" rule, since these reads happen server-side against Prisma/Postgres, not client-side against Supabase.
 
 One deliberate exception to that rule: `/orders/:id/track`'s map component subscribes to Supabase Realtime **directly from the browser** (`supabase.channel(...).on("postgres_changes", ...)`) for live `RiderLocation` updates. This is infrastructure-layer pub/sub, not a business-operation write, and there's no other way to get sub-second position updates without it — but it's why the `RiderLocation` RLS policy in [§2](#2-rider-locations) exists at all: it's the one table a browser client reads from Supabase directly, so the database itself has to enforce who can see what.
 
@@ -231,7 +231,112 @@ Records one GPS ping from the rider currently sharing their live location. Feeds
 
 ---
 
-## 3. Admin
+## 3. Zones & Pricing
+
+### 🟢 `GET /api/zones`
+
+Lists all delivery zones. Deliberately **not** admin-only — customers need this list to populate the zone `<select>` on the order request form.
+
+- **File**: `src/app/api/zones/route.ts`
+- **Role**: any authenticated user.
+
+**Response — `200`**: array of `DeliveryZone` rows, ordered by `name`.
+
+**Errors**
+- `401 Unauthorized` — no session.
+
+### 🟢 `POST /api/zones`
+
+Creates a delivery zone.
+
+- **File**: `src/app/api/zones/route.ts`
+- **Role**: `ADMIN` only.
+
+**Request body**
+```json
+{ "name": "Lagos Mainland", "baseFee": 300 }
+```
+
+**Response — `201`**: the created `DeliveryZone` row.
+
+**Note on `DeliveryZone.baseFee` vs `PricingRule.baseFee`**: these are two separate fields in the schema. `DeliveryZone.baseFee` is a nominal/reference figure shown in the admin UI; the base fee actually used in `calculatePrice` comes from the zone's `PricingRule.baseFee` (§below), not this field. They aren't kept in sync automatically — an admin can set them to different values, and only the `PricingRule` one affects real order pricing.
+
+**Errors**
+- `401 Unauthorized` — no session.
+- `403 Forbidden` — not an admin.
+- `400 Bad Request` — missing/invalid `name` or `baseFee`.
+- `409 Conflict` — a zone with this `name` already exists (`DeliveryZone.name` is `@unique`).
+
+### 🟢 `PATCH /api/zones/:id`
+
+Updates a zone's `name` and/or `baseFee`. Partial — send only the fields you want to change.
+
+- **File**: `src/app/api/zones/[id]/route.ts`
+- **Role**: `ADMIN` only.
+
+**Response — `200`**: the updated `DeliveryZone` row.
+
+**Errors**
+- `401 Unauthorized` — no session.
+- `403 Forbidden` — not an admin.
+- `400 Bad Request` — invalid field types, or an empty body (nothing to update).
+- `404 Not Found` — zone doesn't exist.
+- `409 Conflict` — the new `name` collides with an existing zone.
+
+### 🟢 `GET /api/pricing-rules`
+
+Lists all pricing rules, each with its `zone` included (`null` for the global default rule).
+
+- **File**: `src/app/api/pricing-rules/route.ts`
+- **Role**: `ADMIN` only.
+
+**Response — `200`**: array of `PricingRule` rows (with `zone`), newest first.
+
+**Errors**
+- `401 Unauthorized` — no session.
+- `403 Forbidden` — not an admin.
+
+### 🟢 `POST /api/pricing-rules`
+
+Creates a pricing rule for a zone (or the global default, if `zoneId` is `null`).
+
+- **File**: `src/app/api/pricing-rules/route.ts`
+- **Role**: `ADMIN` only.
+
+**Request body**
+```json
+{ "zoneId": "...", "baseFee": 700, "perKmRate": 120, "weightSurchargeRate": 60, "isActive": true }
+```
+`zoneId` required — a string, or `null` for the global default rule. `baseFee` required. `perKmRate`/`weightSurchargeRate` optional (default `null` — see `calculatePrice`'s formula, §1). `isActive` optional (defaults `true`, matching the schema default).
+
+**Response — `201`**: the created `PricingRule` row (with `zone`).
+
+**No uniqueness enforcement**: nothing stops an admin from creating a second active rule for the same zone — `calculatePrice`'s `findFirst` would then pick one with no defined tiebreak. The admin UI (`/admin/zones`) avoids this in practice by only ever showing a "create" form when a zone has no rule yet, and an "edit" (`PATCH`) form once one exists, but the API itself doesn't guard against it.
+
+**Errors**
+- `401 Unauthorized` — no session.
+- `403 Forbidden` — not an admin.
+- `400 Bad Request` — missing/invalid `zoneId` or `baseFee`.
+- `404 Not Found` — `zoneId` given but no zone with that id exists.
+
+### 🟢 `PATCH /api/pricing-rules/:id`
+
+Updates a pricing rule — e.g. toggling `isActive`, or changing rates. Partial — send only the fields you want to change.
+
+- **File**: `src/app/api/pricing-rules/[id]/route.ts`
+- **Role**: `ADMIN` only.
+
+**Response — `200`**: the updated `PricingRule` row (with `zone`).
+
+**Errors**
+- `401 Unauthorized` — no session.
+- `403 Forbidden` — not an admin.
+- `400 Bad Request` — invalid field types, or an empty body.
+- `404 Not Found` — rule doesn't exist.
+
+---
+
+## 4. Admin
 
 ### 🟢 `GET /api/admin/dashboard`
 
@@ -273,7 +378,7 @@ All figures come from [`getDashboardStats()`](../src/lib/services/dashboard-serv
 
 ---
 
-## 4. Users
+## 5. Users
 
 ### 🟢 `POST /api/users/bootstrap`
 
@@ -299,21 +404,19 @@ Creates the `User` (+ linked `Customer`) row for a Supabase-authenticated identi
 
 ---
 
-## 5. Authentication
+## 6. Authentication
 
 There is no `/api/auth/*` surface. Sign-in and sign-up are handled **directly** by the Supabase Auth browser client (`createSupabaseBrowserClient` in `src/lib/supabase/client.ts`) from `src/app/login/page.tsx` and `src/app/signup/page.tsx` — consistent with the architecture rule that Supabase is the infrastructure layer (auth is infrastructure, not a FleetFlow business operation). Signup additionally calls `POST /api/users/bootstrap` right after `supabase.auth.signUp` succeeds, to create the corresponding Prisma `User`/`Customer` row.
 
 ---
 
-## 6. Not Yet Built
+## 7. Not Yet Built
 
 Present in the Prisma schema and/or referenced in planning docs, but with no route (or, in some cases, no UI) yet:
 
 | Area | Status | Notes |
 |---|---|---|
 | `/api/orders/:id` (single order `GET`) | 🟡 | Pages that need one order's data query Prisma directly in a server component instead. |
-| Delivery zones (CRUD) | 🟡 | `DeliveryZone` model exists; `Order.zoneId` is accepted on create but nothing populates or manages zones. |
-| Pricing rule management (CRUD/admin UI) | 🟡 | The pricing *engine* is built and live (`POST /api/orders` above) and consumes `PricingRule` rows, but there's no route or UI to create/edit rules — only `scripts/seed-pricing.ts`, a one-off seed with placeholder rates. |
 | Notifications | 🟡 | `Notification` model exists; no route, no `NotificationService` (deliberately deferred per `CLAUDE.md`). |
 | Customer-initiated cancellation | 🟡 | The state machine supports `CANCELLED` from `PENDING`/`ASSIGNED`/`RIDER_ACCEPTED`, but `PATCH /status` currently returns a flat `403` for any `CUSTOMER` caller regardless of target status — there's no authorized path for a customer to cancel their own order yet. |
 | Fragmented per-action endpoints (`/accept`, `/reject`, `/pickup`, ...) | — | Not a gap — deliberately rejected in favor of the single `PATCH /status` endpoint. |

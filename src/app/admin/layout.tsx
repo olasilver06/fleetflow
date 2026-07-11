@@ -17,6 +17,12 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           >
             Orders
           </Link>
+          <Link
+            href="/admin/zones"
+            className="text-text-secondary text-sm font-medium hover:text-text-primary transition-colors"
+          >
+            Zones
+          </Link>
         </div>
       </nav>
       {children}

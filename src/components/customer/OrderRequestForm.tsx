@@ -1,10 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { formatNaira } from "@/lib/format";
 
 type SubmitState = "idle" | "submitting" | "success" | "error";
+type Zone = { id: string; name: string };
 
 export default function OrderRequestForm() {
   const [pickupAddress, setPickupAddress] = useState("");
@@ -15,11 +16,23 @@ export default function OrderRequestForm() {
   const [dropoffLng, setDropoffLng] = useState("");
   const [packageDescription, setPackageDescription] = useState("");
   const [weightKg, setWeightKg] = useState("");
+  const [zoneId, setZoneId] = useState("");
+  const [zones, setZones] = useState<Zone[]>([]);
 
   const [state, setState] = useState<SubmitState>("idle");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [orderNumber, setOrderNumber] = useState<string | null>(null);
   const [price, setPrice] = useState<number | null>(null);
+
+  useEffect(() => {
+    fetch("/api/zones")
+      .then((res) => (res.ok ? res.json() : []))
+      .then(setZones)
+      .catch(() => {
+        // Zone selection is optional — if this fails, the form still works
+        // with just the default "no specific zone" option.
+      });
+  }, []);
 
   const isReadyToSubmit =
     pickupAddress.trim() &&
@@ -47,6 +60,7 @@ export default function OrderRequestForm() {
           dropoffLng: parseFloat(dropoffLng),
           packageDescription: packageDescription || undefined,
           weightKg: weightKg ? parseFloat(weightKg) : undefined,
+          zoneId: zoneId || null,
         }),
       });
 
@@ -96,6 +110,22 @@ export default function OrderRequestForm() {
     <div className="max-w-4xl mx-auto grid gap-8 md:grid-cols-[1.2fr_1fr]">
       {/* Form */}
       <form onSubmit={handleSubmit} className="space-y-6">
+        <fieldset className="space-y-3">
+          <legend className="text-text-primary font-medium mb-2">Zone</legend>
+          <select
+            value={zoneId}
+            onChange={(e) => setZoneId(e.target.value)}
+            className="w-full rounded-lg bg-surface border border-border px-4 py-3 text-text-primary focus:outline-none focus:ring-2 focus:ring-primary"
+          >
+            <option value="">No specific zone (standard pricing)</option>
+            {zones.map((zone) => (
+              <option key={zone.id} value={zone.id}>
+                {zone.name}
+              </option>
+            ))}
+          </select>
+        </fieldset>
+
         <fieldset className="space-y-3">
           <legend className="text-text-primary font-medium mb-2">Pickup</legend>
           <input
@@ -205,6 +235,14 @@ export default function OrderRequestForm() {
         </div>
 
         <dl className="space-y-3 text-sm">
+          {zoneId && (
+            <div>
+              <dt className="text-text-secondary text-xs mb-0.5">ZONE</dt>
+              <dd className="text-text-primary">
+                {zones.find((zone) => zone.id === zoneId)?.name ?? "—"}
+              </dd>
+            </div>
+          )}
           <div>
             <dt className="text-text-secondary text-xs mb-0.5">FROM</dt>
             <dd className="text-text-primary">{pickupAddress || "—"}</dd>

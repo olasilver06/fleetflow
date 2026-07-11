@@ -43,7 +43,15 @@ export async function calculatePrice({
   });
 
   if (!rule) {
-    throw new Error("No active pricing rule configured");
+    if (zoneId) {
+      const zone = await prisma.deliveryZone.findUnique({ where: { id: zoneId } });
+      throw new Error(
+        `No active pricing rule configured for zone "${zone?.name ?? zoneId}"`
+      );
+    }
+    throw new Error(
+      "No active pricing rule configured for the global default (no zone selected)"
+    );
   }
 
   const distanceKm = haversineDistanceKm(pickupLat, pickupLng, dropoffLat, dropoffLng);
