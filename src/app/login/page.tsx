@@ -16,16 +16,32 @@ export default function LoginPage() {
     setSubmitting(true);
     setErrorMessage(null);
 
-    const supabase = createSupabaseBrowserClient();
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    try {
+      const supabase = createSupabaseBrowserClient();
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
 
-    if (error) {
-      setErrorMessage(error.message);
+      if (error) {
+        setErrorMessage(error.message);
+        setSubmitting(false);
+        return;
+      }
+
+      // Route by role — /login is shared across all three roles, so it can't
+      // always send people to the customer request form (that was the bug:
+      // admins/riders logging in used to land on /request regardless).
+      const res = await fetch("/api/users/me");
+      const role = res.ok ? (await res.json()).role : null;
+
+      const destination =
+        role === "ADMIN" ? "/admin/dashboard" : role === "RIDER" ? "/rider/jobs" : "/request";
+      router.push(destination);
+    } catch {
+      // Without this, an unexpected failure here (e.g. the /api/users/me
+      // fetch itself failing) leaves the button stuck on "Logging in…"
+      // forever with no feedback — confirmed while debugging this fix.
+      setErrorMessage("Couldn't reach the server. Check your connection and try again.");
       setSubmitting(false);
-      return;
     }
-
-    router.push("/request");
   }
 
   return (

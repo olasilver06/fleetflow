@@ -33,7 +33,7 @@ npx prisma studio
 ## Architecture rules — don't violate these
 
 1. **No client talks to Supabase directly for business operations.** Customer/Admin/Rider apps all go through Next.js API routes. Supabase is the infrastructure layer, not the application layer.
-2. **Every protected route re-derives the role from Prisma via `lib/auth/get-current-user.ts`.** Never trust a role claimed by the client or read from a JWT alone — middleware role checks are UX redirects, not the security boundary.
+2. **Every protected route re-derives the role from Prisma via `lib/auth/get-current-user.ts`.** Never trust a role claimed by the client or read from a JWT alone. **There is no `middleware.ts` in this project** — route protection is not centralized; every protected page and API route calls `getCurrentUser()`/`requireRole()` itself. When adding a new protected route, you must add this check yourself; nothing enforces it automatically. (See `docs/folder-structure.md`.)
 3. **Order status changes only through `lib/services/order-service.ts`.** `transitionOrderStatus` and `assignRiderToOrder` are the single source of truth. Never update `Order.status` directly in a route handler — it bypasses `order-state-machine.ts` and the audit trail.
 4. **One status endpoint, not several.** `PATCH /api/orders/:id/status` handles every transition (accept/reject/pickup/deliver/cancel) via the state machine. Don't fragment into `/accept`, `/reject`, `/pickup` etc. — decided against this in Phase 3.5 review; revisit only if a specific transition needs a genuinely different request shape or permission model.
 5. **Every status transition writes an `OrderStatusHistory` row with both `previousStatus` and `status`.** This is the audit trail — don't skip it for "simple" transitions.
