@@ -59,12 +59,18 @@ export default async function HomePage() {
         <p className="text-text-secondary text-lg mb-8">
           Last-mile delivery, tracked in real time.
         </p>
-        <div className="flex items-center gap-4">
+        <div className="flex flex-wrap items-center justify-center gap-4">
           <Link
             href={currentUser ? "/request" : "/login"}
             className="rounded-lg bg-primary px-6 py-3 text-white font-medium hover:bg-primary/90 transition-colors"
           >
             Request a delivery
+          </Link>
+          <Link
+            href="/join"
+            className="rounded-lg border border-border px-6 py-3 text-text-primary font-medium hover:bg-surface transition-colors"
+          >
+            Sign up
           </Link>
           <Link
             href="/login"
