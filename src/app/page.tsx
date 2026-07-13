@@ -1,7 +1,8 @@
 import Link from "next/link";
-import { PackagePlus, Navigation, PackageCheck, MapPin, Camera, Ruler, History } from "lucide-react";
+import { Bike, PackagePlus, Navigation, PackageCheck, MapPin, Camera, Ruler, History } from "lucide-react";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
 import FleetFlowLogo from "@/components/FleetFlowLogo";
+import Footer from "@/components/Footer";
 
 export const dynamic = "force-dynamic";
 
@@ -51,9 +52,11 @@ const FEATURES = [
 
 export default async function HomePage() {
   const currentUser = await getCurrentUser();
+  const requestHref = currentUser ? "/request" : "/login";
 
   return (
     <main className="min-h-screen bg-background">
+      {/* 1. Hero */}
       <section className="min-h-screen flex flex-col items-center justify-center px-4 text-center">
         <FleetFlowLogo className="w-90 h-auto mb-3" />
         <p className="text-text-secondary text-lg mb-8">
@@ -61,7 +64,7 @@ export default async function HomePage() {
         </p>
         <div className="flex flex-wrap items-center justify-center gap-4">
           <Link
-            href={currentUser ? "/request" : "/login"}
+            href={requestHref}
             className="rounded-lg bg-primary px-6 py-3 text-white font-medium hover:bg-primary/90 transition-colors"
           >
             Request a delivery
@@ -81,7 +84,49 @@ export default async function HomePage() {
         </div>
       </section>
 
-      <section className="border-t border-border px-4 py-16">
+      {/* 2. Live visual — a preview of the live tracking feature, not decoration */}
+      <section className="relative overflow-hidden border-t border-border bg-surface px-4 py-16">
+        <div className="max-w-4xl mx-auto flex flex-col items-center">
+          <p className="text-text-secondary text-xs font-mono uppercase tracking-wide mb-10">
+            Live tracking, in action
+          </p>
+
+          <div
+            className="relative h-7 w-full max-w-[280px] [--route-distance:252px] sm:max-w-[480px] sm:[--route-distance:452px] lg:max-w-[600px] lg:[--route-distance:572px]"
+            aria-hidden="true"
+          >
+            <svg className="absolute inset-0 h-full w-full" preserveAspectRatio="none">
+              <line
+                x1="0"
+                y1="50%"
+                x2="100%"
+                y2="50%"
+                stroke="var(--color-accent)"
+                strokeWidth="2"
+                strokeDasharray="6 8"
+                strokeLinecap="round"
+              />
+            </svg>
+            <div
+              className="absolute top-1/2 left-0 -translate-y-1/2 animate-[fleetflow-route-move_4s_linear_infinite]"
+            >
+              <div className="flex h-7 w-7 items-center justify-center rounded-full bg-accent shadow-lg shadow-accent/30">
+                <Bike className="h-4 w-4 text-white" />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <Link
+          href={requestHref}
+          className="absolute bottom-6 right-6 rounded-lg bg-primary px-5 py-2.5 text-white text-sm font-medium hover:bg-primary/90 transition-colors"
+        >
+          Request a delivery
+        </Link>
+      </section>
+
+      {/* 3. How it works */}
+      <section id="how-it-works" className="border-t border-border px-4 py-16">
         <div className="max-w-4xl mx-auto">
           <h2 className="text-text-primary text-2xl font-medium text-center mb-10">
             How it works
@@ -103,6 +148,7 @@ export default async function HomePage() {
         </div>
       </section>
 
+      {/* 4. Why FleetFlow */}
       <section className="border-t border-border px-4 py-16">
         <div className="max-w-4xl mx-auto">
           <h2 className="text-text-primary text-2xl font-medium text-center mb-10">
@@ -122,6 +168,9 @@ export default async function HomePage() {
           </div>
         </div>
       </section>
+
+      {/* 5. Footer */}
+      <Footer />
     </main>
   );
 }

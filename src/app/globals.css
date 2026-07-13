@@ -43,3 +43,24 @@
 body {
   @apply bg-background text-text-primary transition-colors;
 }
+
+/* Home page "live tracking" preview — the vehicle marker moves along the
+   route line, looping. `transform: translateX` over `offset-path`: for a
+   straight horizontal line both produce identical frame-by-frame motion,
+   so there's nothing to gain from offset-path's curved-path capability
+   here, and transform is GPU-accelerated (no layout thrash) and has
+   broader/more consistent browser support.
+   `translateX(100%)` resolves against the *element's own* box, not its
+   parent's, so it can't express "cross the whole track" directly. Instead
+   of a fixed px value (which would either be cramped on desktop or
+   overflow on mobile), the distance comes from --route-distance, a custom
+   property the component sets per breakpoint to match its own track
+   width at that size — plain, universally-supported CSS either way. */
+@keyframes fleetflow-route-move {
+  0% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(var(--route-distance, 252px));
+  }
+}
