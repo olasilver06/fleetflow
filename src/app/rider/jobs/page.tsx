@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
 import OrderStatusControl from "@/components/rider/OrderStatusControl";
+import RiderNav from "@/components/rider/RiderNav";
 import type { OrderStatus } from "@prisma/client";
 
 export const dynamic = "force-dynamic";
@@ -57,42 +58,45 @@ export default async function RiderJobsPage() {
   });
 
   return (
-    <main className="min-h-screen bg-background py-12 px-4">
-      <div className="max-w-4xl mx-auto mb-8">
-        <h1 className="text-text-primary text-2xl font-medium">Your jobs</h1>
-        <p className="text-text-secondary mt-1">Active deliveries assigned to you.</p>
-      </div>
+    <>
+      <RiderNav />
+      <main className="min-h-screen bg-background py-12 px-4">
+        <div className="max-w-4xl mx-auto mb-8">
+          <h1 className="text-text-primary text-2xl font-medium">Your jobs</h1>
+          <p className="text-text-secondary mt-1">Active deliveries assigned to you.</p>
+        </div>
 
-      <div className="max-w-4xl mx-auto space-y-4">
-        {orders.length === 0 && (
-          <p className="text-text-secondary">No active jobs right now.</p>
-        )}
+        <div className="max-w-4xl mx-auto space-y-4">
+          {orders.length === 0 && (
+            <p className="text-text-secondary">No active jobs right now.</p>
+          )}
 
-        {orders.map((order) => (
-          <div
-            key={order.id}
-            className="rounded-xl border border-border bg-surface p-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 sm:gap-6"
-          >
-            <div>
-              <div className="flex items-center gap-3 mb-2">
-                <span className="font-mono text-sm text-text-primary">
-                  {order.orderNumber}
-                </span>
-                <StatusBadge status={order.status} />
+          {orders.map((order) => (
+            <div
+              key={order.id}
+              className="rounded-xl border border-border bg-surface p-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 sm:gap-6"
+            >
+              <div>
+                <div className="flex items-center gap-3 mb-2">
+                  <span className="font-mono text-sm text-text-primary">
+                    {order.orderNumber}
+                  </span>
+                  <StatusBadge status={order.status} />
+                </div>
+                <p className="text-text-primary text-sm">
+                  {order.pickupAddress} <span className="text-text-secondary">→</span>{" "}
+                  {order.dropoffAddress}
+                </p>
+                <p className="text-text-secondary text-xs mt-1">
+                  {order.customer.user.name}
+                </p>
               </div>
-              <p className="text-text-primary text-sm">
-                {order.pickupAddress} <span className="text-text-secondary">→</span>{" "}
-                {order.dropoffAddress}
-              </p>
-              <p className="text-text-secondary text-xs mt-1">
-                {order.customer.user.name}
-              </p>
-            </div>
 
-            <OrderStatusControl orderId={order.id} status={order.status} />
-          </div>
-        ))}
-      </div>
-    </main>
+              <OrderStatusControl orderId={order.id} status={order.status} />
+            </div>
+          ))}
+        </div>
+      </main>
+    </>
   );
 }
