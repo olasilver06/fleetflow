@@ -1,7 +1,23 @@
+import { redirect } from "next/navigation";
+import { getCurrentUser } from "@/lib/auth/get-current-user";
 import OrderRequestForm from "@/components/customer/OrderRequestForm";
 import CustomerNav from "@/components/customer/CustomerNav";
 
-export default function RequestDeliveryPage() {
+export const dynamic = "force-dynamic";
+
+export default async function RequestDeliveryPage() {
+  const currentUser = await getCurrentUser();
+  if (!currentUser) {
+    redirect("/login");
+  }
+  if (currentUser.role !== "CUSTOMER" || !currentUser.customer) {
+    return (
+      <main className="min-h-screen bg-background flex items-center justify-center px-4">
+        <p className="text-text-secondary">You don&apos;t have access to this page.</p>
+      </main>
+    );
+  }
+
   return (
     <>
       <CustomerNav />
