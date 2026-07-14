@@ -9,14 +9,11 @@ import {
   Camera,
   Ruler,
   History,
-  Settings,
   Clock,
   CheckCircle,
 } from "lucide-react";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
-import FleetFlowLogo from "@/components/FleetFlowLogo";
 import FleetFlowIconMark from "@/components/FleetFlowIconMark";
-import AccountMenu from "@/components/home/AccountMenu";
 import Footer from "@/components/Footer";
 
 export const dynamic = "force-dynamic";
@@ -71,21 +68,8 @@ export default async function HomePage() {
 
   return (
     <main className="min-h-screen bg-background">
-      {/* Top bar */}
-      <div className="max-w-4xl mx-auto px-4 pt-6">
-        <div className="flex items-center justify-between rounded-xl border border-border bg-surface px-4 py-3">
-          <Link href="/">
-            <FleetFlowLogo className="w-32 h-auto" />
-          </Link>
-          <div className="flex items-center gap-5">
-            <Settings className="h-5 w-5 text-text-secondary" aria-hidden="true" />
-            <AccountMenu role={currentUser?.role ?? null} />
-          </div>
-        </div>
-      </div>
-
       {/* Hero panel 1 — courier, full-bleed photo background */}
-      <section className="relative mt-6 h-[440px] sm:h-[480px] lg:h-[560px] w-full overflow-hidden">
+      <section className="relative h-[440px] sm:h-[480px] lg:h-[560px] w-full overflow-hidden">
         <Image
           src="/hero-rider.jpg"
           alt=""

@@ -3,7 +3,6 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
 import RatingForm from "@/components/customer/RatingForm";
-import CustomerNav from "@/components/customer/CustomerNav";
 import { formatNaira } from "@/lib/format";
 import type { OrderStatus } from "@prisma/client";
 
@@ -95,13 +94,11 @@ export default async function CustomerOrdersPage() {
   });
 
   return (
-    <>
-      <CustomerNav />
-      <main className="min-h-screen bg-background py-12 px-4">
-        <div className="max-w-4xl mx-auto mb-8">
-          <h1 className="text-text-primary text-2xl font-medium">My orders</h1>
-          <p className="text-text-secondary mt-1">Track the status of your deliveries.</p>
-        </div>
+    <main className="min-h-screen bg-background py-12 px-4">
+      <div className="max-w-4xl mx-auto mb-8">
+        <h1 className="text-text-primary text-2xl font-medium">My orders</h1>
+        <p className="text-text-secondary mt-1">Track the status of your deliveries.</p>
+      </div>
 
         <div className="max-w-4xl mx-auto space-y-4">
           {orders.length === 0 && (
@@ -182,7 +179,6 @@ export default async function CustomerOrdersPage() {
             </div>
           ))}
         </div>
-      </main>
-    </>
+    </main>
   );
 }

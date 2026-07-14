@@ -14,13 +14,6 @@ export default async function TrackOrderPage({
   if (!currentUser) {
     redirect("/login");
   }
-  if (currentUser.role !== "CUSTOMER" || !currentUser.customer) {
-    return (
-      <main className="min-h-screen bg-background flex items-center justify-center px-4">
-        <p className="text-text-secondary">You don&apos;t have access to this page.</p>
-      </main>
-    );
-  }
 
   const { id: orderId } = await params;
 
@@ -29,7 +22,23 @@ export default async function TrackOrderPage({
     include: { delivery: { include: { rider: { include: { user: true } } } } },
   });
 
-  if (!order || order.deletedAt || order.customerId !== currentUser.customer.id) {
+  if (!order || order.deletedAt) {
+    notFound();
+  }
+
+  // Same ownership rule as GET /api/orders/lookup: owning customer, the
+  // assigned rider, or an admin — anyone else gets a 404, not a 403, so
+  // this page never confirms an order ID exists to someone unauthorized.
+  const authorized =
+    currentUser.role === "ADMIN" ||
+    (currentUser.role === "CUSTOMER" &&
+      !!currentUser.customer &&
+      order.customerId === currentUser.customer.id) ||
+    (currentUser.role === "RIDER" &&
+      !!currentUser.rider &&
+      order.delivery?.riderId === currentUser.rider.id);
+
+  if (!authorized) {
     notFound();
   }
 
