@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 
@@ -10,6 +11,17 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    // Read via window.location instead of useSearchParams so this page
+    // doesn't need a Suspense boundary just for a one-off flash message.
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("reset") === "success") {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- one-off flash message derived from the URL, not state synced from React.
+      setSuccessMessage("Password reset successful. Log in with your new password.");
+    }
+  }, []);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -49,6 +61,8 @@ export default function LoginPage() {
       <form onSubmit={handleSubmit} className="w-full max-w-sm space-y-4">
         <h1 className="text-text-primary text-2xl font-medium mb-6">Log in</h1>
 
+        {successMessage && <p className="text-success text-sm">{successMessage}</p>}
+
         <input
           type="email"
           placeholder="Email"
@@ -66,6 +80,12 @@ export default function LoginPage() {
           required
         />
 
+        <div className="flex justify-end">
+          <Link href="/forgot-password" className="text-primary text-sm hover:underline">
+            Forgot password?
+          </Link>
+        </div>
+
         {errorMessage && (
           <p className="text-danger text-sm" role="alert">
             {errorMessage}
@@ -79,6 +99,13 @@ export default function LoginPage() {
         >
           {submitting ? "Logging in…" : "Log in"}
         </button>
+
+        <p className="text-text-secondary text-sm text-center">
+          Don&apos;t have an account?{" "}
+          <Link href="/join" className="text-primary hover:underline">
+            Sign up
+          </Link>
+        </p>
       </form>
     </main>
   );
