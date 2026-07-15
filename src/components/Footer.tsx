@@ -38,8 +38,24 @@ export default function Footer() {
           <div>
             <p className="text-text-primary text-sm font-medium mb-3">Company</p>
             <ul className="space-y-2">
-              <li className="text-text-secondary text-sm">About</li>
-              <li className="text-text-secondary text-sm">Contact</li>
+              <li>
+                <Link
+                  href="/about"
+                  className="text-text-secondary text-sm hover:text-text-primary transition-colors"
+                >
+                  About
+                </Link>
+              </li>
+              <li>
+                <a
+                  href="https://github.com/olasilver06/fleetflow"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-text-secondary text-sm hover:text-text-primary transition-colors"
+                >
+                  Contact
+                </a>
+              </li>
             </ul>
           </div>
 
