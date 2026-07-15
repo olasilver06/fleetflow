@@ -8,8 +8,8 @@ export default function RiderSignupPendingPage() {
         </div>
         <p className="text-text-primary text-lg mb-1">Account created</p>
         <p className="text-text-secondary text-sm">
-          Your rider account is awaiting review. You&apos;ll be able to start accepting
-          deliveries once an admin approves your account.
+          We manually verify every rider&apos;s details before activation. This usually
+          takes a short while — we&apos;ll notify you once approved.
         </p>
       </div>
     </main>

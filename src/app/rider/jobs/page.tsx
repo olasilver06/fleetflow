@@ -46,6 +46,32 @@ export default async function RiderJobsPage() {
     );
   }
 
+  if (currentUser.rider.verificationStatus !== "APPROVED") {
+    const isRejected = currentUser.rider.verificationStatus === "REJECTED";
+    return (
+      <main className="min-h-screen bg-background flex items-center justify-center px-4">
+        <div className="max-w-md mx-auto rounded-xl border border-border bg-surface p-8 text-center">
+          <div
+            className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-sm font-mono mb-4 ${
+              isRejected ? "bg-danger/10 text-danger" : "bg-warning/10 text-warning"
+            }`}
+          >
+            <span className="h-2 w-2 rounded-full bg-current" />
+            {isRejected ? "NOT APPROVED" : "PENDING REVIEW"}
+          </div>
+          <p className="text-text-primary text-lg mb-1">
+            {isRejected ? "Application not approved" : "Account pending review"}
+          </p>
+          <p className="text-text-secondary text-sm">
+            {isRejected
+              ? "Your rider application wasn't approved. Contact support if you think this is a mistake."
+              : "We manually verify every rider's details before activation. This usually takes a short while — we'll notify you once approved."}
+          </p>
+        </div>
+      </main>
+    );
+  }
+
   const orders = await prisma.order.findMany({
     where: {
       deletedAt: null,

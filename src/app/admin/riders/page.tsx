@@ -1,7 +1,8 @@
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
-import type { RiderAvailability } from "@prisma/client";
+import RiderVerificationControl from "@/components/admin/RiderVerificationControl";
+import type { RiderAvailability, RiderVerificationStatus } from "@prisma/client";
 
 export const dynamic = "force-dynamic";
 
@@ -11,13 +12,19 @@ const AVAILABILITY_STYLES: Record<RiderAvailability, string> = {
   OFFLINE: "bg-neutral/10 text-neutral",
 };
 
-function AvailabilityBadge({ availability }: { availability: RiderAvailability }) {
+const VERIFICATION_STYLES: Record<RiderVerificationStatus, string> = {
+  PENDING: "bg-warning/10 text-warning",
+  APPROVED: "bg-success/10 text-success",
+  REJECTED: "bg-danger/10 text-danger",
+};
+
+function Badge({ label, className }: { label: string; className: string }) {
   return (
     <span
-      className={`inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-mono ${AVAILABILITY_STYLES[availability]}`}
+      className={`inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-mono ${className}`}
     >
       <span className="h-1.5 w-1.5 rounded-full bg-current" />
-      {availability}
+      {label}
     </span>
   );
 }
@@ -46,8 +53,8 @@ export default async function AdminRidersPage() {
       <div className="max-w-4xl mx-auto mb-8">
         <h1 className="text-text-primary text-2xl font-medium">Riders</h1>
         <p className="text-text-secondary mt-1">
-          Everyone who has signed up as a rider. New riders start OFFLINE — set them
-          AVAILABLE once reviewed (via Prisma Studio for now, no in-app approval flow yet).
+          Everyone who has signed up as a rider. New riders are PENDING until manually
+          approved below — they stay OFFLINE until they set themselves AVAILABLE.
         </p>
       </div>
 
@@ -67,8 +74,20 @@ export default async function AdminRidersPage() {
               <p className="text-text-secondary text-xs mt-1">
                 {rider.vehicleType ?? "No vehicle type set"}
               </p>
+              <div className="flex items-center gap-2 mt-2">
+                <Badge
+                  label={rider.verificationStatus}
+                  className={VERIFICATION_STYLES[rider.verificationStatus]}
+                />
+                <Badge
+                  label={rider.availability}
+                  className={AVAILABILITY_STYLES[rider.availability]}
+                />
+              </div>
             </div>
-            <AvailabilityBadge availability={rider.availability} />
+            {rider.verificationStatus === "PENDING" && (
+              <RiderVerificationControl riderId={rider.id} />
+            )}
           </div>
         ))}
       </div>

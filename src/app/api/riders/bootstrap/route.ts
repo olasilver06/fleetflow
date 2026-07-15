@@ -47,6 +47,7 @@ export async function POST(request: NextRequest) {
         create: {
           vehicleType: vehicleType as "BIKE" | "VAN" | "TRUCK",
           availability: "OFFLINE",
+          verificationStatus: "PENDING",
         },
       },
     },

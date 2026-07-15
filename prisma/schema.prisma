@@ -37,6 +37,12 @@ enum RiderAvailability {
   OFFLINE
 }
 
+enum RiderVerificationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
 enum NotificationType {
   EMAIL
   SMS
@@ -87,6 +93,8 @@ model Rider {
   licensePlate String?
   availability RiderAvailability @default(OFFLINE)
 
+  verificationStatus RiderVerificationStatus @default(PENDING)
+
   zoneId String?
   zone   DeliveryZone? @relation(fields: [zoneId], references: [id])
 
@@ -104,6 +112,7 @@ model Rider {
 
   @@index([availability])
   @@index([zoneId])
+  @@index([verificationStatus])
 }
 
 model DeliveryZone {
