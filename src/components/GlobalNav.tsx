@@ -1,35 +1,24 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Search, Settings, CircleUser } from "lucide-react";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import FleetFlowLogo from "@/components/FleetFlowLogo";
 import ThemeToggle from "@/components/ThemeToggle";
+import Sidebar from "@/components/Sidebar";
 
 type Role = "CUSTOMER" | "ADMIN" | "RIDER";
-
-const ROLE_LINKS: Record<Role, { href: string; label: string }[]> = {
-  CUSTOMER: [{ href: "/orders", label: "Track Orders" }],
-  ADMIN: [
-    { href: "/admin/dashboard", label: "Dashboard" },
-    { href: "/admin/orders", label: "Orders" },
-    { href: "/admin/zones", label: "Zones" },
-    { href: "/admin/riders", label: "Riders" },
-  ],
-  RIDER: [{ href: "/rider/jobs", label: "Jobs" }],
-};
 
 export default function GlobalNav() {
   const router = useRouter();
   const [role, setRole] = useState<Role | null>(null);
-  const [menuOpen, setMenuOpen] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
   const [searchValue, setSearchValue] = useState("");
   const [searchError, setSearchError] = useState<string | null>(null);
   const [searching, setSearching] = useState(false);
-  const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     // /api/users/me wraps getCurrentUser() — the client can't derive role
@@ -58,24 +47,6 @@ export default function GlobalNav() {
 
     return () => subscription.unsubscribe();
   }, []);
-
-  useEffect(() => {
-    function handleClickOutside(e: MouseEvent) {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
-        setMenuOpen(false);
-      }
-    }
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
-
-  async function handleSignOut() {
-    const supabase = createSupabaseBrowserClient();
-    await supabase.auth.signOut();
-    setMenuOpen(false);
-    router.push("/login");
-    router.refresh();
-  }
 
   async function handleSearchSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -116,93 +87,50 @@ export default function GlobalNav() {
   );
 
   return (
-    <header className="border-b border-border bg-surface px-4 py-3">
-      <div className="max-w-4xl mx-auto flex items-center gap-4">
-        <Link href="/" className="shrink-0">
-          <FleetFlowLogo className="w-32 h-auto" />
-        </Link>
+    <>
+      <header className="border-b border-border bg-surface px-4 py-3">
+        <div className="flex items-center gap-4">
+          <Link href="/" className="shrink-0">
+            <FleetFlowLogo className="w-32 h-auto" />
+          </Link>
 
-        <form onSubmit={handleSearchSubmit} className="mx-auto hidden w-full max-w-md sm:block">
-          {searchInput}
-        </form>
+          <form onSubmit={handleSearchSubmit} className="mx-auto hidden w-full max-w-md sm:block">
+            {searchInput}
+          </form>
 
-        <div className="ml-auto flex shrink-0 items-center gap-4 sm:ml-0">
-          <button
-            type="button"
-            onClick={() => setMobileSearchOpen((v) => !v)}
-            aria-label="Search orders"
-            className="text-text-secondary hover:text-text-primary transition-colors sm:hidden"
-          >
-            <Search className="h-5 w-5" />
-          </button>
-          <ThemeToggle />
-          <Settings className="h-5 w-5 text-text-secondary" aria-hidden="true" />
-
-          <div className="relative" ref={menuRef}>
+          <div className="ml-auto flex shrink-0 items-center gap-4 sm:ml-0">
             <button
               type="button"
-              onClick={() => setMenuOpen((v) => !v)}
-              aria-label="Account menu"
-              aria-expanded={menuOpen}
+              onClick={() => setMobileSearchOpen((v) => !v)}
+              aria-label="Search orders"
+              className="text-text-secondary hover:text-text-primary transition-colors sm:hidden"
+            >
+              <Search className="h-5 w-5" />
+            </button>
+            <ThemeToggle />
+            <Settings className="h-5 w-5 text-text-secondary" aria-hidden="true" />
+
+            <button
+              type="button"
+              onClick={() => setSidebarOpen(true)}
+              aria-label="Open menu"
               className="text-text-secondary hover:text-text-primary transition-colors"
             >
               <CircleUser className="h-5 w-5" />
             </button>
-            {menuOpen && (
-              <div className="absolute right-0 z-20 mt-2 w-48 rounded-lg border border-border bg-surface py-1 shadow-lg">
-                {role ? (
-                  <>
-                    {ROLE_LINKS[role].map((link) => (
-                      <Link
-                        key={link.href}
-                        href={link.href}
-                        onClick={() => setMenuOpen(false)}
-                        className="block px-4 py-2 text-sm text-text-primary hover:bg-surface-hover transition-colors"
-                      >
-                        {link.label}
-                      </Link>
-                    ))}
-                    <button
-                      type="button"
-                      onClick={handleSignOut}
-                      className="block w-full text-left px-4 py-2 text-sm text-text-secondary hover:bg-surface-hover transition-colors"
-                    >
-                      Sign out
-                    </button>
-                  </>
-                ) : (
-                  <>
-                    <Link
-                      href="/join"
-                      onClick={() => setMenuOpen(false)}
-                      className="block px-4 py-2 text-sm text-text-primary hover:bg-surface-hover transition-colors"
-                    >
-                      Sign up
-                    </Link>
-                    <Link
-                      href="/login"
-                      onClick={() => setMenuOpen(false)}
-                      className="block px-4 py-2 text-sm text-text-primary hover:bg-surface-hover transition-colors"
-                    >
-                      Sign in
-                    </Link>
-                  </>
-                )}
-              </div>
-            )}
           </div>
         </div>
-      </div>
 
-      {mobileSearchOpen && (
-        <form onSubmit={handleSearchSubmit} className="max-w-4xl mx-auto mt-3 sm:hidden">
-          {searchInput}
-        </form>
-      )}
+        {mobileSearchOpen && (
+          <form onSubmit={handleSearchSubmit} className="mt-3 sm:hidden">
+            {searchInput}
+          </form>
+        )}
 
-      {searchError && (
-        <p className="max-w-4xl mx-auto mt-2 text-xs text-danger">{searchError}</p>
-      )}
-    </header>
+        {searchError && <p className="mt-2 text-xs text-danger">{searchError}</p>}
+      </header>
+
+      <Sidebar role={role} isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+    </>
   );
 }

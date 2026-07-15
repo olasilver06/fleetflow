@@ -44,8 +44,22 @@ export default function LoginPage() {
       const res = await fetch("/api/users/me");
       const role = res.ok ? (await res.json()).role : null;
 
-      const destination =
-        role === "ADMIN" ? "/admin/dashboard" : role === "RIDER" ? "/rider/jobs" : "/request";
+      // Sidebar links for anonymous visitors send them here with
+      // ?redirect=<path> so login returns them to what they actually
+      // clicked, not just their role's default landing page. Only accept
+      // a same-site path — "//evil.com" or "/\evil.com" both parse as
+      // protocol-relative URLs in some browsers despite starting with "/".
+      const redirectParam = new URLSearchParams(window.location.search).get("redirect");
+      const isSafeRedirect =
+        !!redirectParam && redirectParam.startsWith("/") && !/^\/[\\/]/.test(redirectParam);
+
+      const destination = isSafeRedirect
+        ? redirectParam
+        : role === "ADMIN"
+          ? "/admin/dashboard"
+          : role === "RIDER"
+            ? "/rider/jobs"
+            : "/request";
       router.push(destination);
     } catch {
       // Without this, an unexpected failure here (e.g. the /api/users/me

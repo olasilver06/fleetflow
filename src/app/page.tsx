@@ -182,7 +182,7 @@ export default async function HomePage() {
       </section>
 
       {/* 4. Why FleetFlow */}
-      <section className="border-t border-border px-4 py-16">
+      <section id="why-fleetflow" className="border-t border-border px-4 py-16">
         <div className="max-w-4xl mx-auto">
           <h2 className="text-text-primary text-2xl font-medium text-center mb-10">
             Why FleetFlow
