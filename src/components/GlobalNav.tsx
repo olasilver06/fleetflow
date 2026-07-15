@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { Search, Settings, CircleUser } from "lucide-react";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import FleetFlowLogo from "@/components/FleetFlowLogo";
@@ -11,8 +11,16 @@ import Sidebar from "@/components/Sidebar";
 
 type Role = "CUSTOMER" | "ADMIN" | "RIDER";
 
+// These auth routes get their own full-bleed photo background and a
+// centered form card — GlobalNav's bar across the top would clash with
+// that treatment, so it opts itself out rather than rendering chrome the
+// page doesn't want. Exact-match only: /rider-signup/pending is a
+// different route and keeps the nav.
+const HIDDEN_ON = ["/login", "/signup", "/rider-signup"];
+
 export default function GlobalNav() {
   const router = useRouter();
+  const pathname = usePathname();
   const [role, setRole] = useState<Role | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
@@ -85,6 +93,10 @@ export default function GlobalNav() {
       />
     </div>
   );
+
+  if (HIDDEN_ON.includes(pathname)) {
+    return null;
+  }
 
   return (
     <>

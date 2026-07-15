@@ -1,8 +1,10 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+import PasswordInput from "@/components/PasswordInput";
 
 export default function SignupPage() {
   const router = useRouter();
@@ -51,8 +53,14 @@ export default function SignupPage() {
   }
 
   return (
-    <main className="min-h-screen bg-background flex items-center justify-center px-4">
-      <form onSubmit={handleSubmit} className="w-full max-w-sm space-y-4">
+    <main className="relative min-h-screen flex items-center justify-center px-4 overflow-hidden">
+      <Image src="/hero-warehouse.jpg" alt="" fill priority sizes="100vw" className="object-cover" />
+      <div className="absolute inset-0 bg-gradient-to-b from-background via-background/85 to-background/50" />
+
+      <form
+        onSubmit={handleSubmit}
+        className="relative z-10 w-full max-w-sm space-y-4 rounded-xl border border-border bg-surface/95 backdrop-blur p-8 shadow-xl"
+      >
         <h1 className="text-text-primary text-2xl font-medium mb-6">Sign up</h1>
 
         <input
@@ -71,14 +79,7 @@ export default function SignupPage() {
           className="w-full rounded-lg bg-surface border border-border px-4 py-3 text-text-primary placeholder:text-text-secondary focus:outline-none focus:ring-2 focus:ring-primary"
           required
         />
-        <input
-          type="password"
-          placeholder="Password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          className="w-full rounded-lg bg-surface border border-border px-4 py-3 text-text-primary placeholder:text-text-secondary focus:outline-none focus:ring-2 focus:ring-primary"
-          required
-        />
+        <PasswordInput placeholder="Password" value={password} onChange={setPassword} required />
 
         {errorMessage && (
           <p className="text-danger text-sm" role="alert">
