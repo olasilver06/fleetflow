@@ -3,10 +3,9 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Search, Settings, CircleUser } from "lucide-react";
+import { Search, CircleUser } from "lucide-react";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import FleetFlowLogo from "@/components/FleetFlowLogo";
-import ThemeToggle from "@/components/ThemeToggle";
 import Sidebar from "@/components/Sidebar";
 
 type Role = "CUSTOMER" | "ADMIN" | "RIDER";
@@ -119,9 +118,6 @@ export default function GlobalNav() {
             >
               <Search className="h-5 w-5" />
             </button>
-            <ThemeToggle />
-            <Settings className="h-5 w-5 text-text-secondary" aria-hidden="true" />
-
             <button
               type="button"
               onClick={() => setSidebarOpen(true)}
