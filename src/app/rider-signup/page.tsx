@@ -5,6 +5,7 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import PasswordInput from "@/components/PasswordInput";
+import GoogleSignInButton from "@/components/GoogleSignInButton";
 
 const VEHICLE_TYPES = ["BIKE", "VAN", "TRUCK"] as const;
 
@@ -65,6 +66,14 @@ export default function RiderSignupPage() {
         className="relative z-10 w-full max-w-sm space-y-4 rounded-xl border border-border bg-surface/95 backdrop-blur p-8 shadow-xl"
       >
         <h1 className="text-text-primary text-2xl font-medium mb-6">Rider sign up</h1>
+
+        <GoogleSignInButton onError={setErrorMessage} />
+
+        <div className="flex items-center gap-3">
+          <div className="h-px flex-1 bg-border" />
+          <span className="text-text-secondary text-xs uppercase tracking-wide">or</span>
+          <div className="h-px flex-1 bg-border" />
+        </div>
 
         <input
           type="text"
