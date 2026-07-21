@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Search, CircleUser } from "lucide-react";
+import { Search, Menu } from "lucide-react";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import FleetFlowLogo from "@/components/FleetFlowLogo";
 import Sidebar from "@/components/Sidebar";
@@ -124,7 +124,7 @@ export default function GlobalNav() {
               aria-label="Open menu"
               className="text-text-secondary hover:text-text-primary transition-colors"
             >
-              <CircleUser className="h-5 w-5" />
+              <Menu className="h-5 w-5" />
             </button>
           </div>
         </div>
